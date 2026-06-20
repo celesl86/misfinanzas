@@ -181,6 +181,27 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
 .toast.show{opacity:1;}
 .empty{text-align:center;padding:36px 20px;color:var(--muted);font-size:13px;}
 
+/* PARCIAL */
+.parcial-block{background:var(--card);border-radius:var(--r);padding:18px;margin-bottom:14px;border:1px solid var(--border);}
+.parcial-block.ok{border-color:rgba(6,214,160,.3);}
+.parcial-block.warn{border-color:rgba(255,99,112,.4);}
+.pb-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
+.pb-title{font-size:16px;font-weight:800;}
+.pb-fecha{font-size:11px;color:var(--muted);margin-top:3px;}
+.pb-tenencia{text-align:right;cursor:pointer;}
+.pb-ten-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.pb-ten-val{font-size:18px;font-weight:800;color:var(--green);}
+.pb-ten-val.zero{color:var(--muted);}
+.pb-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.pb-row:last-child{border-bottom:none;}
+.pb-row-name{color:var(--text);font-weight:500;}
+.pb-row-amt{font-weight:700;}
+.pb-footer{margin-top:14px;padding-top:12px;border-top:2px solid var(--border);display:flex;justify-content:space-between;align-items:baseline;}
+.pb-footer-label{font-size:12px;color:var(--muted);}
+.pb-resultado{font-size:22px;font-weight:900;}
+.pb-resultado.pos{color:var(--green);}
+.pb-resultado.neg{color:var(--a3);}
+
 .andrea-input{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:15px;font-weight:700;width:100%;text-align:right;outline:none;}
 .andrea-input:focus{border-color:var(--a2);}
 
@@ -264,6 +285,7 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
     <div class="hg-card" onclick="goTo('s-tarjetas')"><div class="hg-icon">💳</div><div class="hg-lbl">Tarjetas</div><div class="hg-sub">Consumos del mes</div><div class="hg-amt" id="hg-tarj" style="color:var(--a4)">$0</div></div>
     <div class="hg-card" onclick="goTo('s-ingresos')"><div class="hg-icon">💵</div><div class="hg-lbl">Ingresos</div><div class="hg-sub">Lo que entra</div><div class="hg-amt" id="hg-ing" style="color:var(--green)">$0</div></div>
     <div class="hg-card" onclick="goTo('s-consultorio')"><div class="hg-icon">🩺</div><div class="hg-lbl">Consultorio</div><div class="hg-sub">Atenciones del mes</div><div class="hg-amt" id="hg-cons" style="color:var(--a2)">$0</div></div>
+    <div class="hg-card" onclick="goTo('s-parcial')" style="grid-column:span 2;border-color:rgba(108,99,255,.4)"><div class="hg-icon">⚖️</div><div class="hg-lbl">Parcial</div><div class="hg-sub">Tenencias vs pagos pendientes</div><div class="hg-amt" id="hg-parcial" style="color:var(--a1)">Ver →</div></div>
     <div class="hg-card" onclick="goTo('s-resumen')" style="grid-column:span 2"><div class="hg-icon">📊</div><div class="hg-lbl">Resumen</div><div class="hg-sub">Todo junto</div><div class="hg-amt" style="color:var(--a1)">Ver →</div></div>
   </div>
 </div>
@@ -377,11 +399,33 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
   </div>
 </div>
 
+<!-- ═══════════════════════════════ PARCIAL ═══════════════════════════════ -->
+<div class="screen" id="s-parcial">
+  <div class="topbar">
+    <div class="topbar-back" onclick="goTo('s-home')">‹ Inicio</div>
+    <div class="topbar-title">⚖️ Parcial</div>
+    <div class="month-pill mth-btn">Jun 2026 ▾</div>
+  </div>
+  <div id="parcial-content" style="padding:0 16px;padding-bottom:100px;"></div>
+</div>
+
+<!-- MODAL TENENCIA -->
+<div class="overlay" id="modal-tenencia">
+  <div class="modal">
+    <button class="m-close" onclick="closeModal('tenencia')">✕</button>
+    <h3 id="ten-title">Tenencia</h3>
+    <div class="field"><label>¿Cuánto tenés disponible? ($)</label>
+      <input type="text" inputmode="decimal" id="ten-monto" placeholder="0" autocomplete="off">
+    </div>
+    <button class="btn-main" onclick="saveTenencia()">Guardar</button>
+  </div>
+</div>
+
 <!-- ═══════════════════════════════ BOTTOM NAV ═══════════════════════════════ -->
 <div class="bnav">
   <div class="bni active" onclick="goTo('s-home')"><span class="bni-icon">🏠</span>Inicio</div>
   <div class="bni" onclick="goTo('s-gastos')"><span class="bni-icon">📋</span>Gastos</div>
-  <div class="bni" onclick="goTo('s-tarjetas')"><span class="bni-icon">💳</span>Tarjetas</div>
+  <div class="bni" onclick="goTo('s-parcial')"><span class="bni-icon">⚖️</span>Parcial</div>
   <div class="bni" onclick="goTo('s-consultorio')"><span class="bni-icon">🩺</span>Consul.</div>
   <div class="bni" onclick="goTo('s-resumen')"><span class="bni-icon">📊</span>Resumen</div>
 </div>
@@ -657,7 +701,7 @@ function goTo(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('.bni').forEach((b,i)=>{
-    const sc=['s-home','s-gastos','s-tarjetas','s-consultorio','s-resumen'];
+    const sc=['s-home','s-gastos','s-parcial','s-consultorio','s-resumen'];
     b.classList.toggle('active', sc[i]===id);
   });
   window.scrollTo(0,0);
@@ -794,6 +838,8 @@ function render(){
   renderIngresos(ingresos);
   // CONSULTORIO
   renderConsultorio(atencionesM);
+  // PARCIAL
+  renderParcial(fijos, consumosMes);
   // RESUMEN
   renderResumen(fijos, vars, consumosMes, totalFijos, totalVars, totalAndrea, totalTarj, totalIng, totalCons, saldo);
 }
@@ -1394,6 +1440,109 @@ function parseMonto(str){
     s = s.replace('.','');
   }
   return parseFloat(s)||0;
+}
+
+// ── PARCIAL ──────────────────────────────────────────────────────────────────
+
+// Asignación de gastos fijos a cada cobro
+const COBRO_GASTOS = {
+  dia5: ['luz','agua','gas','claro','municipal','swissmed','jardin','mp_credito'],
+  dia20: ['monotributo','matricula','amex'],
+  findemes: ['telecentro','master','visa_prov','patente','inmobiliario'],
+};
+// Asignación de tarjetas a cobros
+const COBRO_TARJETAS = {
+  dia5:    ['mp','visa-galicia'],
+  dia20:   ['amex'],
+  findemes:['master','visa-provincia'],
+};
+
+const COBROS = [
+  { id:'dia5',    label:'1° Cobro — Celeste',   fecha:'Día 5',    color:'var(--a1)' },
+  { id:'dia20',   label:'2° Cobro — Celeste',   fecha:'Día 20',   color:'var(--a2)' },
+  { id:'findemes',label:'Fin de mes — Marido',  fecha:'Fin de mes',color:'var(--a4)' },
+];
+
+let editingTenencia = null;
+
+function renderParcial(fijos, consumosMes){
+  const el=document.getElementById('parcial-content');
+  if(!el) return;
+
+  const tenencias = load('tenencias')||{dia5:0,dia20:0,findemes:0};
+
+  el.innerHTML = COBROS.map(cobro=>{
+    const ten = Number(tenencias[cobro.id]||0);
+
+    // Gastos fijos asignados a este cobro
+    const gastosFijos = fijos.filter(g=>
+      !g.noAplica && g.fpago!=='tarjeta' &&
+      (COBRO_GASTOS[cobro.id]||[]).includes(g.id)
+    );
+
+    // Tarjetas asignadas a este cobro
+    const tarjetasCobro = (COBRO_TARJETAS[cobro.id]||[]);
+    const gastosTargeta = tarjetasCobro.map(tid=>{
+      const total = consumosMes.filter(c=>c.tarjeta===tid).reduce((a,c)=>a+c.montoCuota,0);
+      const t = TARJETAS[tid];
+      return total>0 ? {nombre: t?t.nombre:tid, monto:total} : null;
+    }).filter(Boolean);
+
+    const totalFijos = gastosFijos.reduce((a,g)=>a+Number(g.monto||0),0);
+    const totalTarj  = gastosTargeta.reduce((a,g)=>a+g.monto,0);
+    const totalPagar = totalFijos + totalTarj;
+    const resultado  = ten - totalPagar;
+    const ok = resultado >= 0;
+
+    const filasFijos = gastosFijos.map(g=>`
+      <div class="pb-row">
+        <span class="pb-row-name">${g.emoji} ${g.nombre}</span>
+        <span class="pb-row-amt" style="color:var(--a3)">${fmt(g.monto)}</span>
+      </div>`).join('');
+
+    const filasTarj = gastosTargeta.map(g=>`
+      <div class="pb-row">
+        <span class="pb-row-name">💳 ${g.nombre}</span>
+        <span class="pb-row-amt" style="color:var(--a4)">${fmt(g.monto)}</span>
+      </div>`).join('');
+
+    return `<div class="parcial-block ${ok?'ok':'warn'}">
+      <div class="pb-header">
+        <div>
+          <div class="pb-title" style="color:${cobro.color}">${cobro.label}</div>
+          <div class="pb-fecha">${cobro.fecha}</div>
+        </div>
+        <div class="pb-tenencia" onclick="openTenencia('${cobro.id}','${cobro.label}')">
+          <div class="pb-ten-label">Tengo disponible</div>
+          <div class="pb-ten-val ${ten===0?'zero':''}">${ten>0?fmt(ten):'Tocar para cargar'}</div>
+        </div>
+      </div>
+      ${filasFijos}${filasTarj}
+      <div class="pb-footer">
+        <div>
+          <div class="pb-footer-label">A pagar: ${fmt(totalPagar)}</div>
+          <div class="pb-footer-label" style="margin-top:3px">${ok?'✓ Llegás':'⚠️ Te falta'}</div>
+        </div>
+        <div class="pb-resultado ${ok?'pos':'neg'}">${fmt(Math.abs(resultado))}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openTenencia(id, label){
+  editingTenencia = id;
+  document.getElementById('ten-title').textContent = label;
+  const tenencias = load('tenencias')||{};
+  document.getElementById('ten-monto').value = tenencias[id]||'';
+  openModal('tenencia');
+}
+function saveTenencia(){
+  const tenencias = load('tenencias')||{dia5:0,dia20:0,findemes:0};
+  tenencias[editingTenencia] = parseMonto(document.getElementById('ten-monto').value);
+  save('tenencias', tenencias);
+  closeModal('tenencia');
+  toast('Guardado ✓');
+  render();
 }
 
 // ── EXPORTAR / IMPORTAR ──────────────────────────────────────────────────────
