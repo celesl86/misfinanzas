@@ -1182,11 +1182,12 @@ function calcAndrea(){
 
   const dias=getAndreaDias();
   const pagados=load('andreaPagados')||{};
-  const pagadoCount=dias.filter(d=>pagados[d.fecha]).length;
-  const pendienteCount=dias.length-pagadoCount;
+  const pagadoCount=dias.filter(d=>pagados[d.fecha]==='paid').length;
+  const ausenteCount=dias.filter(d=>pagados[d.fecha]==='absent').length;
+  const pendienteCount=dias.length-pagadoCount-ausenteCount;
   const totalPagado=pagadoCount*valor;
   const totalPendiente=pendienteCount*valor;
-  const totalMes=(pagadoCount+pendienteCount)*valor;
+  const totalMes=totalPagado+totalPendiente;
 
   const pillEl=document.getElementById('andrea-total-pill');
   if(pillEl) pillEl.textContent=totalMes>0?fmt(totalMes):'';
@@ -1199,15 +1200,22 @@ function calcAndrea(){
   const listEl=document.getElementById('andrea-dias-list');
   if(!listEl) return;
   listEl.innerHTML=dias.map(d=>{
-    const paid=!!pagados[d.fecha];
+    const estado=pagados[d.fecha]||'pending';
+    const paid=estado==='paid';
+    const absent=estado==='absent';
     const hoy=new Date(); hoy.setHours(0,0,0,0);
     const esFuturo=new Date(d.fecha+'T00:00:00')>hoy;
+    const dotColor=paid?'var(--green)':absent?'var(--border)':esFuturo?'var(--border)':'var(--a4)';
+    const dotBg=paid?'var(--green)':absent?'var(--border)':'transparent';
+    const dotText=paid?'✓':absent?'✗':'';
+    const textColor=paid?'var(--muted)':absent?'var(--muted)':esFuturo?'var(--muted)':'var(--text)';
+    const montoDisplay=absent?'<span style="font-size:11px;color:var(--muted)">No vino</span>':valor>0?fmt(valor):'—';
     return `<div class="pb-row" onclick="toggleAndreaDia('${d.fecha}')" style="cursor:pointer">
       <div style="display:flex;align-items:center;gap:10px;">
-        <div style="width:22px;height:22px;border-radius:6px;border:2px solid ${paid?'var(--green)':esFuturo?'var(--border)':'var(--a4)'};background:${paid?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;">${paid?'✓':''}</div>
-        <span style="font-size:13px;font-weight:600;color:${paid?'var(--muted)':esFuturo?'var(--muted)':'var(--text)'};">${d.label}${esFuturo?' <span style="font-size:10px;color:var(--muted)">próximo</span>':''}</span>
+        <div style="width:22px;height:22px;border-radius:6px;border:2px solid ${dotColor};background:${dotBg};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;color:${paid?'#000':'var(--muted)'};">${dotText}</div>
+        <span style="font-size:13px;font-weight:600;color:${textColor};${absent?'text-decoration:line-through':''}">${d.label}${esFuturo&&!absent?' <span style="font-size:10px;color:var(--muted)">próximo</span>':''}</span>
       </div>
-      <span style="font-size:14px;font-weight:700;color:${paid?'var(--green)':esFuturo?'var(--muted)':'var(--text)'};">${valor>0?fmt(valor):'—'}</span>
+      <span style="font-size:14px;font-weight:700;color:${paid?'var(--green)':'var(--muted)'};">${montoDisplay}</span>
     </div>`;
   }).join('');
 
@@ -1216,10 +1224,11 @@ function calcAndrea(){
 
 function toggleAndreaDia(fecha){
   const pagados=load('andreaPagados')||{};
-  pagados[fecha]=!pagados[fecha];
+  const cur=pagados[fecha]||'pending';
+  // Ciclo: pending → paid → absent → pending
+  pagados[fecha]=cur==='pending'?'paid':cur==='paid'?'absent':'pending';
   save('andreaPagados',pagados);
   calcAndrea();
-  // También actualizar el total en render
   render();
 }
 
