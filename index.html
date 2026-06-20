@@ -945,13 +945,14 @@ function renderTarjetas(consumos, consumosMes){
       const cuotaMonto=Math.round(Number(c.monto)/cuotas);
       const impactos=impactosCuotas(c.tarjeta,c.fecha,cuotas,cuotaIni);
       const restantes=cuotas-cuotaIni+1;
-      const cuotaLabel=cuotas>1?` · cuota ${cuotaIni}/${cuotas} · ${fmt(cuotaMonto)}/mes`:'';
+      const cuotaLabel=cuotas>1?` · cuota ${cuotaIni}/${cuotas}`:'';
       const mesesLabel=cuotas>1
         ? impactos.map(i=>MESES_C[i.mes]).join('→')
         : `→ ${MESES_C[impactos[0]?.mes]} ${impactos[0]?.año}`;
+      const montoDisplay=c.montoUSD>0?`US$ ${c.montoUSD}`:fmt(cuotaMonto);
       return `<div class="cr-row" onclick="editConsumoModal('${c.id}')">
         <div><div class="cr-name">${c.nombre}${cuotaLabel}</div><div class="cr-date">${fmtFecha(c.fecha)}</div></div>
-        <div class="cr-right"><div class="cr-amt">${c.montoUSD>0?`US$ ${c.montoUSD}`:fmt(c.monto)}</div><div class="cr-imp">${mesesLabel}</div></div>
+        <div class="cr-right"><div class="cr-amt">${montoDisplay}</div><div class="cr-imp">${mesesLabel}</div></div>
       </div>`;
     }).join('') || '<div style="font-size:12px;color:var(--muted);padding:8px 0">Sin consumos</div>';
     return `<div class="tc">
