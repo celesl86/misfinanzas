@@ -1534,10 +1534,20 @@ function renderParcial(fijos, consumosMes){
   el.innerHTML = COBROS.map(cobro=>{
     const ten = Number(tenencias[cobro.id]||0);
 
-    const gastosFijos = fijos.filter(g=>
-      !g.noAplica && g.fpago!=='tarjeta' &&
-      (COBRO_GASTOS[cobro.id]||[]).includes(g.id)
-    );
+    // Gastos fijos: si tiene fecha de vencimiento, asignar por fecha; si no, usar lista fija
+    const gastosFijos = fijos.filter(g=>{
+      if(g.noAplica || g.fpago==='tarjeta') return false;
+      if(g.vto){
+        // Extraer el día del vencimiento
+        const dia = parseInt(g.vto.split('-')[2]);
+        if(cobro.id==='dia5')    return dia < 20;
+        if(cobro.id==='dia20')   return dia >= 20;
+        if(cobro.id==='findemes') return false; // con fecha siempre va a dia5 o dia20
+      } else {
+        // Sin fecha: usar asignación fija
+        return (COBRO_GASTOS[cobro.id]||[]).includes(g.id);
+      }
+    });
 
     const tarjPagadas = load('tarjPagadas')||{};
     const gastosTargeta = (COBRO_TARJETAS[cobro.id]||[]).map(tid=>{
