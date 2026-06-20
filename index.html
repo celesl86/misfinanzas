@@ -443,6 +443,14 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
     <div class="field"><label>Frecuencia</label>
       <select id="gf-freq"><option value="mensual">Mensual</option><option value="bimestral">Bimestral</option><option value="anual">Anual</option></select>
     </div>
+    <div class="field"><label>Forma de pago</label>
+      <select id="gf-fpago">
+        <option value="debito">Débito automático</option>
+        <option value="transferencia">Transferencia</option>
+        <option value="tarjeta">Tarjeta (ya está en tarjetas)</option>
+        <option value="efectivo">Efectivo</option>
+      </select>
+    </div>
     <button class="btn-main" onclick="saveGF()">Guardar</button>
   </div>
 </div>
@@ -793,7 +801,7 @@ function render(){
 function calcTotalVars(vars){
   let t=0;
   vars.forEach(cat=>{
-    [...cat.items,...cat.extra].forEach(i=>{ if(i.checked) t+=Number(i.monto||0); });
+    [...cat.items,...cat.extra].forEach(i=>{ if(Number(i.monto||0)>0) t+=Number(i.monto); });
   });
   return t;
 }
@@ -821,6 +829,8 @@ function renderFijos(fijos){
     const overdue=vtoD&&vtoD<hoyD&&!paid;
     const cls=paid?'gf-item paid':overdue?'gf-item overdue':'gf-item';
     const expanded=expandedGF[g.id];
+    const fpagoLabels={debito:'💳 Débito',transferencia:'🔁 Transf.',tarjeta:'⚠️ En tarjeta',efectivo:'💵 Efectivo'};
+    const fpagoTag=g.fpago?` · ${fpagoLabels[g.fpago]||g.fpago}`:'';
     const badge=paid?`<span class="gf-paid-badge">✓ Pagado</span>`:overdue?`<span class="gf-overdue-badge">⚠ Vencido</span>`:'';
     const actBtns=expanded?`<div class="gf-actions">
       <button class="gf-btn gf-btn-edit" onclick="openGFModal('${g.id}',event)">✏️ Editar</button>
@@ -833,7 +843,7 @@ function renderFijos(fijos){
         <div class="gf-ico" style="background:${CAT_COLORS[g.cat]||'#636e72'}22">${g.emoji}</div>
         <div class="gf-body">
           <div class="gf-name">${g.nombre} ${badge}</div>
-          <div class="gf-meta">${g.freq==='bimestral'?'Bimestral':g.freq==='anual'?'Anual':'Mensual'}${g.vto?' · Vto: '+fmtFecha(g.vto):''}</div>
+          <div class="gf-meta">${g.freq==='bimestral'?'Bimestral':g.freq==='anual'?'Anual':'Mensual'}${g.vto?' · Vto: '+fmtFecha(g.vto):''}${fpagoTag}</div>
         </div>
         <div class="gf-right">
           <div class="gf-amt" style="color:${paid?'var(--muted)':overdue?'var(--a3)':'var(--text)'}">${g.monto?fmt(g.monto):'—'}</div>
@@ -886,6 +896,7 @@ function openGFModal(id,e){
   document.getElementById('gf-est').value=g.est||'';
   document.getElementById('gf-vto').value=g.vto||'';
   document.getElementById('gf-freq').value=g.freq||'mensual';
+  document.getElementById('gf-fpago').value=g.fpago||'debito';
   openModal('gf');
 }
 function saveGF(){
@@ -895,6 +906,7 @@ function saveGF(){
     est:parseMonto(document.getElementById('gf-est').value),
     vto:document.getElementById('gf-vto').value,
     freq:document.getElementById('gf-freq').value,
+    fpago:document.getElementById('gf-fpago').value,
   });
   closeModal('gf'); toast('Guardado ✓'); render();
 }
@@ -904,7 +916,7 @@ function renderVars(vars){
   const el=document.getElementById('gastos-vars-list');
   if(!el) return;
   el.innerHTML=vars.map((cat,ci)=>{
-    const total=[...cat.items,...cat.extra].filter(i=>i.checked).reduce((a,i)=>a+Number(i.monto||0),0);
+    const total=[...cat.items,...cat.extra].filter(i=>Number(i.monto||0)>0).reduce((a,i)=>a+Number(i.monto||0),0);
     const isOpen=collVars[cat.id]!==false; // default open for first
     const itemsHTML=cat.items.map((item,ii)=>`
       <div class="vi-row">
@@ -955,8 +967,8 @@ function updateVarMonto(ci,ii,tipo,val){
   vars[ci][tipo][ii].monto=parseMonto(val);
   saveVars(vars);
   // no re-render completo para no perder foco
-  const el=document.querySelector(`.var-cat-card:nth-child(${ci+1}) .vcc-total`);
-  if(el){ const total=([...vars[ci].items,...vars[ci].extra]).filter(i=>i.checked).reduce((a,i)=>a+Number(i.monto||0),0); el.textContent=total>0?fmt(total):''; }
+  const el=document.querySelector(`#gastos-vars-list .coll-section:nth-child(${ci+1}) .coll-total`);
+  if(el){ const total=([...vars[ci].items,...vars[ci].extra]).filter(i=>Number(i.monto||0)>0).reduce((a,i)=>a+Number(i.monto||0),0); el.textContent=total>0?fmt(total):''; }
 }
 function addVarItem(ci){
   const input=document.getElementById(`vadd-${ci}`);
