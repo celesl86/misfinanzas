@@ -893,8 +893,8 @@ function openGFModal(id,e){
   const g=fijos.find(x=>x.id===id);
   if(!g) return;
   document.getElementById('gf-title').textContent='Editar: '+g.nombre;
-  document.getElementById('gf-monto').value=g.monto||'';
-  document.getElementById('gf-est').value=g.est||'';
+  document.getElementById('gf-monto').value=g.monto?String(g.monto).replace('.',','):'';
+  document.getElementById('gf-est').value=g.est?String(g.est).replace('.',','):'';
   document.getElementById('gf-vto').value=g.vto||'';
   document.getElementById('gf-freq').value=g.freq||'mensual';
   document.getElementById('gf-fpago').value=g.fpago||'debito';
@@ -1348,7 +1348,28 @@ document.querySelectorAll('.overlay').forEach(el=>el.addEventListener('click',e=
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
 function fmtFecha(str){ if(!str) return ''; const [y,m,d]=str.split('-'); return `${d}/${m}/${y}`; }
 // Acepta tanto punto como coma como separador decimal
-function parseMonto(str){ return parseFloat(String(str||'').replace(/\./g,'').replace(',','.'))||0; }
+// Formato argentino: 422.907,86 → 422907.86
+// Formato simple: 422907 o 422907,86 o 422907.86
+function parseMonto(str){
+  let s = String(str||'').trim();
+  if(!s) return 0;
+  // Si tiene coma: puede ser separador decimal (422907,86) o miles con coma (422,907)
+  // Si tiene punto Y coma: el punto es miles, la coma es decimal → 422.907,86
+  if(s.includes(',') && s.includes('.')){
+    // Formato 422.907,86 → quitar puntos, reemplazar coma por punto
+    s = s.replace(/\./g,'').replace(',','.');
+  } else if(s.includes(',')) {
+    // Solo coma: puede ser decimal → 422907,86 → 422907.86
+    // O miles americano: 422,907 → pero en Argentina la coma es decimal
+    s = s.replace(',','.');
+  }
+  // Si solo tiene punto: puede ser decimal (422.86) o miles (422.907)
+  // Si hay exactamente 3 dígitos después del punto, es miles → eliminarlo
+  else if(s.includes('.') && /\.\d{3}$/.test(s) && !s.match(/\.\d{3}\./)){
+    s = s.replace('.','');
+  }
+  return parseFloat(s)||0;
+}
 
 // ── EXPORTAR / IMPORTAR ──────────────────────────────────────────────────────
 function exportarDatos(){
