@@ -1527,16 +1527,15 @@ function renderParcial(fijos, consumosMes){
   const andrea = load('andrea')||{valor:0};
   const andreaPagados = load('andreaPagados')||{};
   const andreaDias = getAndreaDias();
-  const hoyAndrea=new Date(); hoyAndrea.setHours(0,0,0,0);
   const andreaPendientePasados = andreaDias.filter(d=>{
+    const dia = parseInt(d.fecha.split('-')[2]);
     const estado=andreaPagados[d.fecha]||'pending';
-    const fecha=new Date(d.fecha+'T00:00:00');
-    return estado==='pending' && fecha<=hoyAndrea;
+    return estado==='pending' && dia>=5 && dia<20;
   });
   const andreaPendienteFuturos = andreaDias.filter(d=>{
+    const dia = parseInt(d.fecha.split('-')[2]);
     const estado=andreaPagados[d.fecha]||'pending';
-    const fecha=new Date(d.fecha+'T00:00:00');
-    return estado==='pending' && fecha>hoyAndrea;
+    return estado==='pending' && (dia>=20 || dia<5);
   });
   const andreaValor = Number(andrea.valor||0);
 
@@ -1566,12 +1565,11 @@ function renderParcial(fijos, consumosMes){
       return total>0?{id:'tarj_'+tid, nombre:t?t.nombre:tid, monto:total, tipo:'tarjeta', estado:paid?'paid':'pending'}:null;
     }).filter(Boolean);
 
-    // Andrea: pasados pendientes → día 5, futuros → día 20
     const andreaForCobro = cobro.id==='dia5' ? andreaPendientePasados : cobro.id==='dia20' ? andreaPendienteFuturos : [];
     const andreaTotalCobro = andreaForCobro.length * andreaValor;
     const andreaItem = andreaTotalCobro>0 ? [{
       id:'andrea',
-      nombre:`Andrea (${andreaForCobro.length} día${andreaForCobro.length!==1?'s':''} ${cobro.id==='dia5'?'sin pagar':'próximos'})`,
+      nombre:`Andrea (${andreaForCobro.map(d=>fmtFecha(d.fecha)).join(', ')})`,
       emoji:'🧹', monto:andreaTotalCobro, tipo:'andrea', estado:'pending'
     }] : [];
 
