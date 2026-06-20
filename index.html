@@ -239,6 +239,9 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
       <div class="hh-stat"><div class="hs-l">Gastos</div><div class="hs-v" id="h-gas" style="color:var(--a3)">$0</div></div>
       <div class="hh-stat"><div class="hs-l">Tarjetas</div><div class="hs-v" id="h-tarj" style="color:var(--a4)">$0</div></div>
     </div>
+    <div id="h-usd-wrap" style="display:none;margin-top:10px;background:rgba(255,209,102,.1);border-radius:8px;padding:7px 12px;font-size:12px;color:var(--a4);">
+      💵 También tenés consumos en dólares: <b id="h-usd-total">US$ 0</b>
+    </div>
   </div>
   <div class="prog-wrap">
     <div class="prog-lbl"><span>Gastos vs ingresos</span><span id="h-pct">0%</span></div>
@@ -440,6 +443,7 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
       </select>
     </div>
     <div class="field"><label>Fecha del consumo</label><input type="date" id="con-fecha" oninput="updateImpacto()"></div>
+    <div class="field"><label>Monto en dólares (opcional)</label><input type="text" inputmode="decimal" id="con-monto-usd" placeholder="Ej: 2,46 — solo si fue en USD" autocomplete="off"></div>
     <div class="impact-box" id="con-impact-box">
       <div class="impact-lbl">¿Cómo impacta?</div>
       <div class="impact-val" id="con-impacto">Completá la fecha para ver</div>
@@ -707,6 +711,14 @@ function render(){
   const totalIng   = ingresos.reduce((a,i)=>a+Number(i.monto||0),0) + totalCons;
   const saldo      = totalIng-totalGas;
 
+  // Calcular total USD del mes
+  const totalUSD = consumosMes.filter(c=>c.montoUSD&&c.montoUSD>0).reduce((a,c)=>a+Number(c.montoUSD),0);
+  const usdWrap = document.getElementById('h-usd-wrap');
+  if(totalUSD>0){
+    usdWrap.style.display='block';
+    document.getElementById('h-usd-total').textContent=`US$ ${totalUSD.toLocaleString('es-AR',{minimumFractionDigits:2})}`;
+  } else { usdWrap.style.display='none'; }
+
   // HOME
   document.getElementById('h-saldo-val').textContent = Math.abs(saldo).toLocaleString('es-AR');
   document.getElementById('h-saldo').className = 'hh-saldo '+(saldo>=0?'pos':'neg');
@@ -938,7 +950,7 @@ function renderTarjetas(consumos, consumosMes){
         : `→ ${MESES_C[impactos[0]?.mes]} ${impactos[0]?.año}`;
       return `<div class="cr-row" onclick="editConsumoModal('${c.id}')">
         <div><div class="cr-name">${c.nombre}${cuotaLabel}</div><div class="cr-date">${fmtFecha(c.fecha)}</div></div>
-        <div class="cr-right"><div class="cr-amt">${fmt(c.monto)}</div><div class="cr-imp">${mesesLabel}</div></div>
+        <div class="cr-right"><div class="cr-amt">${c.montoUSD>0?`US$ ${c.montoUSD}`:fmt(c.monto)}</div><div class="cr-imp">${mesesLabel}</div></div>
       </div>`;
     }).join('') || '<div style="font-size:12px;color:var(--muted);padding:8px 0">Sin consumos</div>';
     return `<div class="tc">
@@ -965,6 +977,7 @@ function openConsumoModal(tarjId){
   document.getElementById('con-cuota-ini').value='1';
   document.getElementById('con-tarjeta').value=tarjId||'amex';
   document.getElementById('con-fecha').value=new Date().toISOString().split('T')[0];
+  document.getElementById('con-monto-usd').value='';
   document.getElementById('con-del').style.display='none';
   updateImpacto(); openModal('consumo');
 }
@@ -979,6 +992,7 @@ function editConsumoModal(id){
   document.getElementById('con-cuota-ini').value=c.cuotaInicial||1;
   document.getElementById('con-tarjeta').value=c.tarjeta;
   document.getElementById('con-fecha').value=c.fecha;
+  document.getElementById('con-monto-usd').value=c.montoUSD||'';
   document.getElementById('con-del').style.display='block';
   updateImpacto(); openModal('consumo');
 }
@@ -991,7 +1005,8 @@ function saveConsumo(){
   const fecha=document.getElementById('con-fecha').value;
   if(!nombre||!monto||!fecha){ toast('Completá todos los campos'); return; }
   const list=loadG('consumos')||[];
-  const nuevo={nombre,monto,cuotas,tarjeta,fecha,cuotaInicial};
+  const montoUSD = parseMonto(document.getElementById('con-monto-usd').value)||0;
+  const nuevo={nombre,monto,cuotas,tarjeta,fecha,cuotaInicial,montoUSD};
   if(editingCon){ const i=list.findIndex(x=>x.id===editingCon); if(i>=0) list[i]={...list[i],...nuevo}; }
   else list.push({id:'c'+Date.now(),...nuevo});
   saveG('consumos',list); closeModal('consumo');
