@@ -445,10 +445,8 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
     </div>
     <div class="field"><label>Forma de pago</label>
       <select id="gf-fpago">
-        <option value="debito">Débito automático</option>
-        <option value="transferencia">Transferencia</option>
-        <option value="tarjeta">Tarjeta (ya está en tarjetas)</option>
-        <option value="efectivo">Efectivo</option>
+        <option value="contado">💵 Contado (débito / efectivo / transferencia)</option>
+        <option value="tarjeta">💳 Tarjeta (ya se cuenta en Tarjetas)</option>
       </select>
     </div>
     <button class="btn-main" onclick="saveGF()">Guardar</button>
@@ -618,7 +616,7 @@ function loadFijos(){
     vto:     saved[b.id]?.vto     || '',
     freq:    saved[b.id]?.freq    || b.freq,
     estado:  saved[b.id]?.estado  || 'pending',
-    fpago:   saved[b.id]?.fpago   || 'debito',
+    fpago:   saved[b.id]?.fpago   || 'contado',
   }));
 }
 function saveFijoItem(id, data){
@@ -752,7 +750,7 @@ function render(){
   const ingresos = load('ingresos') || [];
   const atenciones = loadG('consultorio') || [];
 
-  const totalFijos = fijos.reduce((a,g)=>a+Number(g.monto||0),0);
+  const totalFijos = fijos.filter(g=>g.fpago!=='tarjeta').reduce((a,g)=>a+Number(g.monto||0),0);
   const totalVars  = calcTotalVars(vars);
   const consumosMes = consumosDelMes(consumos, curM, curY);
   const totalTarj  = consumosMes.reduce((a,c)=>a+c.montoCuota,0);
@@ -830,8 +828,8 @@ function renderFijos(fijos){
     const overdue=vtoD&&vtoD<hoyD&&!paid;
     const cls=paid?'gf-item paid':overdue?'gf-item overdue':'gf-item';
     const expanded=expandedGF[g.id];
-    const fpagoLabels={debito:'💳 Débito',transferencia:'🔁 Transf.',tarjeta:'⚠️ En tarjeta',efectivo:'💵 Efectivo'};
-    const fpagoTag=g.fpago?` · ${fpagoLabels[g.fpago]||g.fpago}`:'';
+    const fpagoLabels={contado:'',debito:'',transferencia:'',tarjeta:'⚠️ En tarjeta',efectivo:''};
+    const fpagoTag=g.fpago==='tarjeta'?' · ⚠️ En tarjeta':'';
     const badge=paid?`<span class="gf-paid-badge">✓ Pagado</span>`:overdue?`<span class="gf-overdue-badge">⚠ Vencido</span>`:'';
     const actBtns=expanded?`<div class="gf-actions">
       <button class="gf-btn gf-btn-edit" onclick="openGFModal('${g.id}',event)">✏️ Editar</button>
@@ -897,7 +895,7 @@ function openGFModal(id,e){
   document.getElementById('gf-est').value=g.est?String(g.est).replace('.',','):'';
   document.getElementById('gf-vto').value=g.vto||'';
   document.getElementById('gf-freq').value=g.freq||'mensual';
-  document.getElementById('gf-fpago').value=g.fpago||'debito';
+  document.getElementById('gf-fpago').value=g.fpago==='tarjeta'?'tarjeta':'contado';
   openModal('gf');
 }
 function saveGF(){
@@ -1322,7 +1320,7 @@ function renderResumen(fijos, vars, consumosMes, totalFijos, totalVars, totalTar
 
   // Barras categorías: fijos por cat + variables por cat
   const catTot={};
-  fijos.forEach(g=>{ if(g.monto) catTot[g.cat]=(catTot[g.cat]||0)+Number(g.monto); });
+  fijos.filter(g=>g.fpago!=='tarjeta').forEach(g=>{ if(g.monto) catTot[g.cat]=(catTot[g.cat]||0)+Number(g.monto); });
   vars.forEach(cat=>{
     const tot=[...cat.items,...cat.extra].filter(i=>i.checked).reduce((a,i)=>a+Number(i.monto||0),0);
     if(tot>0) catTot[cat.id]=(catTot[cat.id]||0)+tot;
