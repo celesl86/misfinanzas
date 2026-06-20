@@ -934,6 +934,7 @@ function renderTarjetas(consumos, consumosMes){
     const mis=consumos.filter(c=>c.tarjeta===id);
     const delMes=consumosMes.filter(c=>c.tarjeta===id);
     const total=delMes.reduce((a,c)=>a+c.montoCuota,0);
+    const totalUSD=delMes.filter(c=>c.montoUSD>0).reduce((a,c)=>a+Number(c.montoUSD),0);
     let cie=new Date(hoy.getFullYear(),hoy.getMonth(),t.cierre);
     if(cie<hoy) cie=new Date(hoy.getFullYear(),hoy.getMonth()+1,t.cierre);
     const dias=Math.ceil((cie-hoy)/86400000);
@@ -959,7 +960,11 @@ function renderTarjetas(consumos, consumosMes){
         <div class="tc-dates">Cierre: <b>día ${t.cierre}</b><br>Vence: <b>día ${t.vence}</b></div>
       </div>
       <div class="tc-total-row">
-        <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Este mes</div><div class="tc-total">${fmt(total)}</div></div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Este mes</div>
+          <div class="tc-total">${fmt(total)}</div>
+          ${totalUSD>0?`<div style="font-size:12px;color:var(--a4);font-weight:700;margin-top:2px">+ US$ ${totalUSD.toLocaleString('es-AR',{minimumFractionDigits:2})}</div>`:''}
+        </div>
         <div class="tc-cierre-info">Próx. cierre<br><b>en ${dias} día${dias!==1?'s':''}</b></div>
       </div>
       <div class="tc-items">${itemsHTML}</div>
