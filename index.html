@@ -1527,7 +1527,12 @@ function renderParcial(fijos, consumosMes){
   const andrea = load('andrea')||{valor:0};
   const andreaPagados = load('andreaPagados')||{};
   const andreaDias = getAndreaDias();
-  const andreaPendienteDias = andreaDias.filter(d=>(andreaPagados[d.fecha]||'pending')==='pending');
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const andreaPendienteDias = andreaDias.filter(d=>{
+    const estado=andreaPagados[d.fecha]||'pending';
+    const fecha=new Date(d.fecha+'T00:00:00');
+    return estado==='pending' && fecha<=hoy;
+  });
   const andreaValor = Number(andrea.valor||0);
   const andreaPendienteTotal = andreaPendienteDias.length * andreaValor;
 
