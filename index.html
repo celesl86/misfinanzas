@@ -753,11 +753,13 @@ function render(){
 
   const totalFijos = fijos.filter(g=>g.fpago!=='tarjeta'&&!g.noAplica).reduce((a,g)=>a+Number(g.monto||0),0);
   const totalVars  = calcTotalVars(vars);
+  const andrea = load('andrea')||{martes:0,jueves:0,valor:0};
+  const totalAndrea = (Number(andrea.martes||0)+Number(andrea.jueves||0))*Number(andrea.valor||0);
   const consumosMes = consumosDelMes(consumos, curM, curY);
   const totalTarj  = consumosMes.reduce((a,c)=>a+c.montoCuota,0);
   const atencionesM = atenciones.filter(a=>{ const f=new Date(a.fecha+'T12:00:00'); return f.getMonth()===curM&&f.getFullYear()===curY; });
   const totalCons  = atencionesM.reduce((a,c)=>a+Number(c.monto||0),0);
-  const totalGas   = totalFijos+totalVars+totalTarj;
+  const totalGas   = totalFijos+totalVars+totalAndrea+totalTarj;
   const totalIng   = ingresos.reduce((a,i)=>a+Number(i.monto||0),0) + totalCons;
   const saldo      = totalIng-totalGas;
 
@@ -795,7 +797,7 @@ function render(){
   // CONSULTORIO
   renderConsultorio(atencionesM);
   // RESUMEN
-  renderResumen(fijos, vars, consumosMes, totalFijos, totalVars, totalTarj, totalIng, totalCons, saldo);
+  renderResumen(fijos, vars, consumosMes, totalFijos, totalVars, totalAndrea, totalTarj, totalIng, totalCons, saldo);
 }
 
 function calcTotalVars(vars){
@@ -1100,27 +1102,40 @@ function toggleAndrea(){
 function calcAndrea(){
   const m=Number(document.getElementById('andMartes')?.value)||0;
   const j=Number(document.getElementById('andJueves')?.value)||0;
-  const v=Number(document.getElementById('andValor')?.value)||0;
+  const v=parseMonto(document.getElementById('andValor')?.value)||0;
   const total=(m+j)*v;
   const fmtd=fmt(total);
   const el=document.getElementById('andTotal');
   const pill=document.getElementById('andrea-total-pill');
   if(el) el.textContent=fmtd;
   if(pill) pill.textContent=total>0?fmtd:'';
+  // Guardar en storage
+  save('andrea', {martes:m, jueves:j, valor:v});
 }
 function detectAndrea(){
-  const m=curM, y=curY;
-  let martes=0, jueves=0;
-  const dias=new Date(y,m+1,0).getDate();
-  for(let d=1;d<=dias;d++){
-    const dow=new Date(y,m,d).getDay();
-    if(dow===2) martes++;
-    if(dow===4) jueves++;
-  }
+  const saved = load('andrea');
   const mEl=document.getElementById('andMartes');
   const jEl=document.getElementById('andJueves');
-  if(mEl) mEl.value=martes;
-  if(jEl) jEl.value=jueves;
+  const vEl=document.getElementById('andValor');
+  if(!mEl||!jEl||!vEl) return;
+  if(saved){
+    mEl.value=saved.martes||0;
+    jEl.value=saved.jueves||0;
+    vEl.value=saved.valor||0;
+  } else {
+    // Auto-detectar martes y jueves del mes
+    const m=curM, y=curY;
+    let martes=0, jueves=0;
+    const dias=new Date(y,m+1,0).getDate();
+    for(let d=1;d<=dias;d++){
+      const dow=new Date(y,m,d).getDay();
+      if(dow===2) martes++;
+      if(dow===4) jueves++;
+    }
+    mEl.value=martes;
+    jEl.value=jueves;
+    vEl.value=0;
+  }
   calcAndrea();
 }
 
@@ -1314,11 +1329,11 @@ function deleteIng(){
 }
 
 // ── RESUMEN ──────────────────────────────────────────────────────────────────
-function renderResumen(fijos, vars, consumosMes, totalFijos, totalVars, totalTarj, totalIng, totalCons, saldo){
+function renderResumen(fijos, vars, consumosMes, totalFijos, totalVars, totalAndrea, totalTarj, totalIng, totalCons, saldo){
   const resSaldo=document.getElementById('res-saldo'); if(!resSaldo) return;
   resSaldo.textContent=fmt(saldo);
   resSaldo.className='res-saldo '+(saldo>=0?'pos':'neg');
-  document.getElementById('res-sub').textContent=`Ingresos ${fmt(totalIng)} (incl. consultorio ${fmt(totalCons)}) — Gastos ${fmt(totalFijos+totalVars+totalTarj)}`;
+  document.getElementById('res-sub').textContent=`Ingresos ${fmt(totalIng)} (incl. consultorio ${fmt(totalCons)}) — Gastos ${fmt(totalFijos+totalVars+totalAndrea+totalTarj)}`;
   document.getElementById('rc-fijos').textContent=fmt(totalFijos);
   document.getElementById('rc-vars').textContent=fmt(totalVars);
   document.getElementById('rc-tarj').textContent=fmt(totalTarj);
