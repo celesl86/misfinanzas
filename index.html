@@ -639,13 +639,13 @@ function impactoMes(tarjId, fechaStr){
   return {mes,año};
 }
 // Devuelve array de {mes,año} para las cuotas RESTANTES desde cuotaInicial
+// La fecha ya indica el mes de la cuota actual — no aplicar offset adicional
 function impactosCuotas(tarjId, fechaStr, cuotas, cuotaInicial){
   const base=impactoMes(tarjId,fechaStr);
-  const inicio=(cuotaInicial||1)-1; // offset en meses
   const restantes=cuotas-(cuotaInicial||1)+1;
   const result=[];
   for(let i=0;i<restantes;i++){
-    let mes=base.mes+inicio+i, año=base.año;
+    let mes=base.mes+i, año=base.año;
     while(mes>11){mes-=12;año++;}
     result.push({mes,año});
   }
