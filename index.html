@@ -369,7 +369,7 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
     <div class="field">
       <label>Nombre del paciente</label>
       <div class="autocomplete-wrap">
-        <input type="text" id="cons-nombre" placeholder="Ej: María García" autocomplete="off" oninput="acSearch(this.value)">
+        <input type="text" id="cons-nombre" placeholder="Ej: María García" autocomplete="off" oninput="acSearch(this.value)" onkeyup="acSearch(this.value)">
         <div class="autocomplete-list" id="ac-list"></div>
       </div>
     </div>
@@ -1043,10 +1043,19 @@ function deleteConsumo(){
 function acSearch(query){
   const list=document.getElementById('ac-list');
   if(!query||query.length<2){ list.classList.remove('show'); return; }
-  // Buscar pacientes únicos en el historial global
-  const todos=loadG('consultorio')||[];
+  // Buscar en global Y en todos los meses guardados
+  const todos=[];
+  const global=loadG('consultorio')||[];
+  todos.push(...global);
+  // También buscar en claves mensuales por si acaso
+  for(let i=0;i<localStorage.length;i++){
+    const key=localStorage.key(i);
+    if(key.startsWith('mf3_consultorio_')){
+      try{ const d=JSON.parse(localStorage.getItem(key)); if(Array.isArray(d)) todos.push(...d); }catch{}
+    }
+  }
   const vistos={};
-  todos.forEach(a=>{ if(a.nombre) vistos[a.nombre.toLowerCase()]={nombre:a.nombre,dni:a.dni}; });
+  todos.forEach(a=>{ if(a.nombre) vistos[a.nombre.toLowerCase()]={nombre:a.nombre,dni:a.dni||''}; });
   const q=query.toLowerCase();
   const matches=Object.values(vistos).filter(p=>p.nombre.toLowerCase().includes(q)).slice(0,6);
   if(!matches.length){ list.classList.remove('show'); return; }
