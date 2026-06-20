@@ -618,6 +618,7 @@ function loadFijos(){
     vto:     saved[b.id]?.vto     || '',
     freq:    saved[b.id]?.freq    || b.freq,
     estado:  saved[b.id]?.estado  || 'pending',
+    fpago:   saved[b.id]?.fpago   || 'debito',
   }));
 }
 function saveFijoItem(id, data){
