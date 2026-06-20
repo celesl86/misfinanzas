@@ -1444,23 +1444,20 @@ function parseMonto(str){
 
 // ── PARCIAL ──────────────────────────────────────────────────────────────────
 
-// Asignación de gastos fijos a cada cobro
 const COBRO_GASTOS = {
-  dia5: ['luz','agua','gas','claro','municipal','swissmed','jardin','mp_credito'],
-  dia20: ['monotributo','matricula','amex'],
-  findemes: ['telecentro','master','visa_prov','patente','inmobiliario'],
+  dia5:    ['luz','agua','gas','claro','municipal','swissmed','jardin'],
+  dia20:   ['monotributo','matricula'],
+  findemes:['telecentro','patente','inmobiliario'],
 };
-// Asignación de tarjetas a cobros
 const COBRO_TARJETAS = {
   dia5:    ['mp','visa-galicia'],
   dia20:   ['amex'],
   findemes:['master','visa-provincia'],
 };
-
 const COBROS = [
-  { id:'dia5',    label:'1° Cobro — Celeste',   fecha:'Día 5',    color:'var(--a1)' },
-  { id:'dia20',   label:'2° Cobro — Celeste',   fecha:'Día 20',   color:'var(--a2)' },
-  { id:'findemes',label:'Fin de mes — Marido',  fecha:'Fin de mes',color:'var(--a4)' },
+  { id:'dia5',    label:'1° Cobro — Celeste',  fecha:'Día 5',    color:'var(--a1)' },
+  { id:'dia20',   label:'2° Cobro — Celeste',  fecha:'Día 20',   color:'var(--a2)' },
+  { id:'findemes',label:'Fin de mes — Marido', fecha:'Fin de mes',color:'var(--a4)' },
 ];
 
 let editingTenencia = null;
@@ -1468,78 +1465,101 @@ let editingTenencia = null;
 function renderParcial(fijos, consumosMes){
   const el=document.getElementById('parcial-content');
   if(!el) return;
-
-  const tenencias = load('tenencias')||{dia5:0,dia20:0,findemes:0};
+  const tenencias = load('tenencias')||{};
 
   el.innerHTML = COBROS.map(cobro=>{
     const ten = Number(tenencias[cobro.id]||0);
 
-    // Gastos fijos asignados a este cobro
+    // Gastos fijos de este cobro
     const gastosFijos = fijos.filter(g=>
       !g.noAplica && g.fpago!=='tarjeta' &&
       (COBRO_GASTOS[cobro.id]||[]).includes(g.id)
     );
 
-    // Tarjetas asignadas a este cobro
-    const tarjetasCobro = (COBRO_TARJETAS[cobro.id]||[]);
-    const gastosTargeta = tarjetasCobro.map(tid=>{
-      const total = consumosMes.filter(c=>c.tarjeta===tid).reduce((a,c)=>a+c.montoCuota,0);
-      const t = TARJETAS[tid];
-      return total>0 ? {nombre: t?t.nombre:tid, monto:total} : null;
+    // Tarjetas de este cobro
+    const tarjPagadas = load('tarjPagadas')||{};
+    const gastosTargeta = (COBRO_TARJETAS[cobro.id]||[]).map(tid=>{
+      const total=consumosMes.filter(c=>c.tarjeta===tid).reduce((a,c)=>a+c.montoCuota,0);
+      const t=TARJETAS[tid];
+      const paid=!!tarjPagadas[`${tid}_${cobro.id}`];
+      return total>0?{id:'tarj_'+tid, nombre:t?t.nombre:tid, monto:total, tipo:'tarjeta', estado:paid?'paid':'pending'}:null;
     }).filter(Boolean);
 
-    const totalFijos = gastosFijos.reduce((a,g)=>a+Number(g.monto||0),0);
-    const totalTarj  = gastosTargeta.reduce((a,g)=>a+g.monto,0);
-    const totalPagar = totalFijos + totalTarj;
-    const resultado  = ten - totalPagar;
-    const ok = resultado >= 0;
+    const todos = [...gastosFijos.map(g=>({...g,tipo:'fijo'})), ...gastosTargeta];
+    const totalPagar = todos.reduce((a,g)=>a+Number(g.monto||0),0);
+    const pagado = todos.filter(g=>g.estado==='paid').reduce((a,g)=>a+Number(g.monto||0),0);
+    const pendiente = totalPagar - pagado;
+    const disponible = ten - pendiente;
+    const ok = disponible >= 0;
 
-    const filasFijos = gastosFijos.map(g=>`
-      <div class="pb-row">
-        <span class="pb-row-name">${g.emoji} ${g.nombre}</span>
-        <span class="pb-row-amt" style="color:var(--a3)">${fmt(g.monto)}</span>
-      </div>`).join('');
+    const filas = todos.map(g=>{
+      const paid = g.estado==='paid';
+      const onclick = g.tipo==='fijo'
+        ? `onclick="parcialTogglePago('${g.id}')"`
+        : `onclick="parcialToggleTarjeta('${g.id.replace('tarj_','')}','${cobro.id}')"`;
+      return `<div class="pb-row" ${onclick} style="cursor:pointer">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:22px;height:22px;border-radius:6px;border:2px solid ${paid?'var(--green)':'var(--border)'};background:${paid?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;">${paid?'✓':''}</div>
+          <span class="pb-row-name" style="${paid?'text-decoration:line-through;color:var(--muted)':''}">${g.tipo==='tarjeta'?'💳 ':g.emoji+' '}${g.nombre}</span>
+        </div>
+        <span class="pb-row-amt" style="color:${paid?'var(--muted)':g.tipo==='tarjeta'?'var(--a4)':'var(--a3)'}">${fmt(g.monto)}</span>
+      </div>`;
+    }).join('');
 
-    const filasTarj = gastosTargeta.map(g=>`
-      <div class="pb-row">
-        <span class="pb-row-name">💳 ${g.nombre}</span>
-        <span class="pb-row-amt" style="color:var(--a4)">${fmt(g.monto)}</span>
-      </div>`).join('');
-
-    return `<div class="parcial-block ${ok?'ok':'warn'}">
+    return `<div class="parcial-block ${ok&&ten>0?'ok':!ok&&ten>0?'warn':''}">
       <div class="pb-header">
         <div>
           <div class="pb-title" style="color:${cobro.color}">${cobro.label}</div>
           <div class="pb-fecha">${cobro.fecha}</div>
         </div>
         <div class="pb-tenencia" onclick="openTenencia('${cobro.id}','${cobro.label}')">
-          <div class="pb-ten-label">Tengo disponible</div>
-          <div class="pb-ten-val ${ten===0?'zero':''}">${ten>0?fmt(ten):'Tocar para cargar'}</div>
+          <div class="pb-ten-label">Disponible</div>
+          <div class="pb-ten-val ${ten===0?'zero':''}">${ten>0?fmt(ten):'+ Cargar'}</div>
         </div>
       </div>
-      ${filasFijos}${filasTarj}
+      ${filas}
       <div class="pb-footer">
         <div>
-          <div class="pb-footer-label">A pagar: ${fmt(totalPagar)}</div>
-          <div class="pb-footer-label" style="margin-top:3px">${ok?'✓ Llegás':'⚠️ Te falta'}</div>
+          <div class="pb-footer-label">Pendiente: <b style="color:var(--a3)">${fmt(pendiente)}</b></div>
+          <div class="pb-footer-label" style="margin-top:3px">Pagado: <b style="color:var(--green)">${fmt(pagado)}</b></div>
         </div>
-        <div class="pb-resultado ${ok?'pos':'neg'}">${fmt(Math.abs(resultado))}</div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);text-align:right;margin-bottom:3px">${ten>0?(ok?'✓ Llegás':'⚠️ Te falta'):''}</div>
+          <div class="pb-resultado ${ok&&ten>0?'pos':'neg'}">${ten>0?fmt(Math.abs(disponible)):'—'}</div>
+        </div>
       </div>
     </div>`;
   }).join('');
 }
 
+function parcialTogglePago(id){
+  const saved=load('fijos')||{};
+  const cur=saved[id]?.estado||'pending';
+  saveFijoItem(id,{estado:cur==='paid'?'pending':'paid'});
+  toast(cur==='paid'?'Desmarcado':'✓ Pagado');
+  render();
+}
+
+function parcialToggleTarjeta(tarjId, cobroId){
+  const tarjPagadas = load('tarjPagadas')||{};
+  const key=`${tarjId}_${cobroId}`;
+  tarjPagadas[key]=!tarjPagadas[key];
+  save('tarjPagadas', tarjPagadas);
+  toast(tarjPagadas[key]?'✓ Pagado':'Desmarcado');
+  render();
+}
+
 function openTenencia(id, label){
-  editingTenencia = id;
-  document.getElementById('ten-title').textContent = label;
-  const tenencias = load('tenencias')||{};
-  document.getElementById('ten-monto').value = tenencias[id]||'';
+  editingTenencia=id;
+  document.getElementById('ten-title').textContent=label;
+  const tenencias=load('tenencias')||{};
+  document.getElementById('ten-monto').value=tenencias[id]||'';
   openModal('tenencia');
 }
 function saveTenencia(){
-  const tenencias = load('tenencias')||{dia5:0,dia20:0,findemes:0};
-  tenencias[editingTenencia] = parseMonto(document.getElementById('ten-monto').value);
-  save('tenencias', tenencias);
+  const tenencias=load('tenencias')||{};
+  tenencias[editingTenencia]=parseMonto(document.getElementById('ten-monto').value);
+  save('tenencias',tenencias);
   closeModal('tenencia');
   toast('Guardado ✓');
   render();
