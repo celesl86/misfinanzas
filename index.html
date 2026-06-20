@@ -616,7 +616,8 @@ function loadFijos(){
     vto:     saved[b.id]?.vto     || '',
     freq:    saved[b.id]?.freq    || b.freq,
     estado:  saved[b.id]?.estado  || 'pending',
-    fpago:   saved[b.id]?.fpago   || 'contado',
+    fpago:    saved[b.id]?.fpago    || 'contado',
+    noAplica: saved[b.id]?.noAplica || false,
   }));
 }
 function saveFijoItem(id, data){
@@ -750,7 +751,7 @@ function render(){
   const ingresos = load('ingresos') || [];
   const atenciones = loadG('consultorio') || [];
 
-  const totalFijos = fijos.filter(g=>g.fpago!=='tarjeta').reduce((a,g)=>a+Number(g.monto||0),0);
+  const totalFijos = fijos.filter(g=>g.fpago!=='tarjeta'&&!g.noAplica).reduce((a,g)=>a+Number(g.monto||0),0);
   const totalVars  = calcTotalVars(vars);
   const consumosMes = consumosDelMes(consumos, curM, curY);
   const totalTarj  = consumosMes.reduce((a,c)=>a+c.montoCuota,0);
@@ -825,19 +826,24 @@ function renderFijos(fijos){
     const paid=g.estado==='paid';
     const hoyD=new Date(); hoyD.setHours(0,0,0,0);
     const vtoD=g.vto?new Date(g.vto+'T00:00:00'):null;
-    const overdue=vtoD&&vtoD<hoyD&&!paid;
-    const cls=paid?'gf-item paid':overdue?'gf-item overdue':'gf-item';
+    const overdue=vtoD&&vtoD<hoyD&&!paid&&!g.noAplica;
+    const noAplica=g.noAplica;
+    const cls=noAplica?'gf-item':paid?'gf-item paid':overdue?'gf-item overdue':'gf-item';
     const expanded=expandedGF[g.id];
-    const fpagoLabels={contado:'',debito:'',transferencia:'',tarjeta:'⚠️ En tarjeta',efectivo:''};
+    const badge=noAplica?`<span style="font-size:10px;font-weight:800;color:var(--muted)">— No aplica</span>`:
+                paid?`<span class="gf-paid-badge">✓ Pagado</span>`:
+                overdue?`<span class="gf-overdue-badge">⚠ Vencido</span>`:'';
     const fpagoTag=g.fpago==='tarjeta'?' · ⚠️ En tarjeta':'';
-    const badge=paid?`<span class="gf-paid-badge">✓ Pagado</span>`:overdue?`<span class="gf-overdue-badge">⚠ Vencido</span>`:'';
     const actBtns=expanded?`<div class="gf-actions">
       <button class="gf-btn gf-btn-edit" onclick="openGFModal('${g.id}',event)">✏️ Editar</button>
-      <button class="gf-btn ${paid?'gf-btn-unpay':'gf-btn-pay'}" onclick="togglePago('${g.id}',event)">
-        ${paid?'↩ Desmarcar':'✓ Marcar pagado'}
+      <button class="gf-btn" style="background:rgba(107,116,146,.15);color:var(--muted)" onclick="toggleNoAplica('${g.id}',event)">
+        ${noAplica?'✓ Activar':'— No aplica'}
       </button>
+      ${!noAplica?`<button class="gf-btn ${paid?'gf-btn-unpay':'gf-btn-pay'}" onclick="togglePago('${g.id}',event)">
+        ${paid?'↩ Desmarcar':'✓ Pagado'}
+      </button>`:''}
     </div>`:'';
-    return `<div class="${cls}" onclick="toggleExpand('${g.id}')">
+    return `<div class="${cls}" style="${noAplica?'opacity:0.45;':''}" onclick="toggleExpand('${g.id}')">
       <div class="gf-top">
         <div class="gf-ico" style="background:${CAT_COLORS[g.cat]||'#636e72'}22">${g.emoji}</div>
         <div class="gf-body">
@@ -845,7 +851,7 @@ function renderFijos(fijos){
           <div class="gf-meta">${g.freq==='bimestral'?'Bimestral':g.freq==='anual'?'Anual':'Mensual'}${g.vto?' · Vto: '+fmtFecha(g.vto):''}${fpagoTag}</div>
         </div>
         <div class="gf-right">
-          <div class="gf-amt" style="color:${paid?'var(--muted)':overdue?'var(--a3)':'var(--text)'}">${g.monto?fmt(g.monto):'—'}</div>
+          <div class="gf-amt" style="color:${noAplica?'var(--muted)':paid?'var(--muted)':overdue?'var(--a3)':'var(--text)'}">${g.monto?fmt(g.monto):'—'}</div>
           ${g.est&&g.est!=g.monto?`<div style="font-size:10px;color:var(--muted)">Est.${fmt(g.est)}</div>`:''}
         </div>
       </div>
@@ -874,6 +880,14 @@ function toggleCollFijos(){ collFijos=!collFijos; render(); }
 
 function toggleExpand(id){
   expandedGF[id]=!expandedGF[id];
+  render();
+}
+function toggleNoAplica(id,e){
+  e.stopPropagation();
+  const saved=load('fijos')||{};
+  const cur=saved[id]?.noAplica||false;
+  saveFijoItem(id,{noAplica:!cur});
+  toast(!cur?'— No aplica este mes':'✓ Activado');
   render();
 }
 function togglePago(id,e){
@@ -1320,7 +1334,7 @@ function renderResumen(fijos, vars, consumosMes, totalFijos, totalVars, totalTar
 
   // Barras categorías: fijos por cat + variables por cat
   const catTot={};
-  fijos.filter(g=>g.fpago!=='tarjeta').forEach(g=>{ if(g.monto) catTot[g.cat]=(catTot[g.cat]||0)+Number(g.monto); });
+  fijos.filter(g=>g.fpago!=='tarjeta'&&!g.noAplica).forEach(g=>{ if(g.monto) catTot[g.cat]=(catTot[g.cat]||0)+Number(g.monto); });
   vars.forEach(cat=>{
     const tot=[...cat.items,...cat.extra].filter(i=>i.checked).reduce((a,i)=>a+Number(i.monto||0),0);
     if(tot>0) catTot[cat.id]=(catTot[cat.id]||0)+tot;
