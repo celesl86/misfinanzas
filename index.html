@@ -304,21 +304,24 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
   <div class="coll-section" style="margin-bottom:10px;">
     <div class="coll-hdr" onclick="toggleAndrea()">
       <div class="coll-left"><span class="coll-emoji">🧹</span><span class="coll-label">Andrea</span></div>
-      <div class="coll-right"><span class="coll-total" id="andrea-total-pill" style="color:var(--a2)"></span><span class="coll-arrow" id="andrea-arrow">▼</span></div>
+      <div class="coll-right"><span class="coll-total" id="andrea-total-pill" style="color:var(--a2)"></span><span class="coll-arrow open" id="andrea-arrow">▼</span></div>
     </div>
-    <div class="coll-body" id="andrea-body">
+    <div class="coll-body open" id="andrea-body">
       <div class="coll-inner">
-        <div style="display:flex;gap:10px;margin-bottom:10px;">
-          <div style="flex:1"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Martes</div>
-            <input class="andrea-input" type="number" id="andMartes" value="4" min="0" max="5" oninput="calcAndrea()"></div>
-          <div style="flex:1"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Jueves</div>
-            <input class="andrea-input" type="number" id="andJueves" value="4" min="0" max="5" oninput="calcAndrea()"></div>
+        <div style="display:flex;gap:10px;margin-bottom:12px;">
           <div style="flex:1"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">$ por día</div>
-            <input class="andrea-input" type="number" id="andValor" value="0" oninput="calcAndrea()"></div>
+            <input class="andrea-input" type="text" inputmode="decimal" id="andValor" value="0" oninput="calcAndrea()"></div>
         </div>
-        <div style="background:rgba(0,201,167,.1);border-radius:var(--rs);padding:12px;display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-size:12px;color:var(--a2);">Total del mes</span>
-          <span style="font-size:22px;font-weight:900;color:var(--a2);" id="andTotal">$0</span>
+        <div id="andrea-dias-list"></div>
+        <div style="background:rgba(0,201,167,.1);border-radius:var(--rs);padding:12px;margin-top:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-size:12px;color:var(--a2);">✓ Pagado</span>
+            <span style="font-size:17px;font-weight:800;color:var(--green);" id="andrea-pagado">$0</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;color:var(--muted);">Pendiente</span>
+            <span style="font-size:17px;font-weight:800;color:var(--muted);" id="andrea-pendiente">$0</span>
+          </div>
         </div>
       </div>
     </div>
@@ -796,8 +799,17 @@ function render(){
 
   const totalFijos = fijos.filter(g=>g.fpago!=='tarjeta'&&!g.noAplica).reduce((a,g)=>a+Number(g.monto||0),0);
   const totalVars  = calcTotalVars(vars);
-  const andrea = load('andrea')||{martes:0,jueves:0,valor:0};
-  const totalAndrea = (Number(andrea.martes||0)+Number(andrea.jueves||0))*Number(andrea.valor||0);
+  const andrea = load('andrea')||{valor:0};
+  const andreaPagados = load('andreaPagados')||{};
+  const andreaDias = (() => {
+    const dias=[]; const total=new Date(curY,curM+1,0).getDate();
+    for(let d=1;d<=total;d++){
+      const dow=new Date(curY,curM,d).getDay();
+      if(dow===2||dow===4) dias.push(`${curY}-${String(curM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+    }
+    return dias;
+  })();
+  const totalAndrea = andreaDias.reduce((a,f)=>a+Number(andrea.valor||0),0);
   const consumosMes = consumosDelMes(consumos, curM, curY);
   const totalTarj  = consumosMes.reduce((a,c)=>a+c.montoCuota,0);
   const atencionesM = atenciones.filter(a=>{ const f=new Date(a.fecha+'T12:00:00'); return f.getMonth()===curM&&f.getFullYear()===curY; });
@@ -1143,43 +1155,78 @@ function toggleAndrea(){
   document.getElementById('andrea-body').className='coll-body'+(andreaOpen?' open':'');
   document.getElementById('andrea-arrow').className='coll-arrow'+(andreaOpen?' open':'');
 }
-function calcAndrea(){
-  const m=Number(document.getElementById('andMartes')?.value)||0;
-  const j=Number(document.getElementById('andJueves')?.value)||0;
-  const v=parseMonto(document.getElementById('andValor')?.value)||0;
-  const total=(m+j)*v;
-  const fmtd=fmt(total);
-  const el=document.getElementById('andTotal');
-  const pill=document.getElementById('andrea-total-pill');
-  if(el) el.textContent=fmtd;
-  if(pill) pill.textContent=total>0?fmtd:'';
-  // Guardar en storage
-  save('andrea', {martes:m, jueves:j, valor:v});
-}
-function detectAndrea(){
-  const saved = load('andrea');
-  const mEl=document.getElementById('andMartes');
-  const jEl=document.getElementById('andJueves');
-  const vEl=document.getElementById('andValor');
-  if(!mEl||!jEl||!vEl) return;
-  if(saved){
-    mEl.value=saved.martes||0;
-    jEl.value=saved.jueves||0;
-    vEl.value=saved.valor||0;
-  } else {
-    // Auto-detectar martes y jueves del mes
-    const m=curM, y=curY;
-    let martes=0, jueves=0;
-    const dias=new Date(y,m+1,0).getDate();
-    for(let d=1;d<=dias;d++){
-      const dow=new Date(y,m,d).getDay();
-      if(dow===2) martes++;
-      if(dow===4) jueves++;
+
+function getAndreaDias(){
+  // Genera lista de martes (2) y jueves (4) del mes actual
+  const dias=[];
+  const totalDias=new Date(curY,curM+1,0).getDate();
+  const DIAS_NOMBRE=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const MESES_CORTO=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  for(let d=1;d<=totalDias;d++){
+    const dow=new Date(curY,curM,d).getDay();
+    if(dow===2||dow===4){
+      dias.push({
+        fecha:`${curY}-${String(curM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,
+        label:`${DIAS_NOMBRE[dow]} ${d} ${MESES_CORTO[curM]}`,
+        dow
+      });
     }
-    mEl.value=martes;
-    jEl.value=jueves;
-    vEl.value=0;
   }
+  return dias;
+}
+
+function calcAndrea(){
+  const valor=parseMonto(document.getElementById('andValor')?.value)||0;
+  const saved=load('andrea')||{};
+  save('andrea',{...saved, valor});
+
+  const dias=getAndreaDias();
+  const pagados=load('andreaPagados')||{};
+  const pagadoCount=dias.filter(d=>pagados[d.fecha]).length;
+  const pendienteCount=dias.length-pagadoCount;
+  const totalPagado=pagadoCount*valor;
+  const totalPendiente=pendienteCount*valor;
+  const totalMes=(pagadoCount+pendienteCount)*valor;
+
+  const pillEl=document.getElementById('andrea-total-pill');
+  if(pillEl) pillEl.textContent=totalMes>0?fmt(totalMes):'';
+  const pagEl=document.getElementById('andrea-pagado');
+  const penEl=document.getElementById('andrea-pendiente');
+  if(pagEl) pagEl.textContent=fmt(totalPagado);
+  if(penEl) penEl.textContent=fmt(totalPendiente);
+
+  // Render lista de días
+  const listEl=document.getElementById('andrea-dias-list');
+  if(!listEl) return;
+  listEl.innerHTML=dias.map(d=>{
+    const paid=!!pagados[d.fecha];
+    const hoy=new Date(); hoy.setHours(0,0,0,0);
+    const esFuturo=new Date(d.fecha+'T00:00:00')>hoy;
+    return `<div class="pb-row" onclick="toggleAndreaDia('${d.fecha}')" style="cursor:pointer">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:22px;height:22px;border-radius:6px;border:2px solid ${paid?'var(--green)':esFuturo?'var(--border)':'var(--a4)'};background:${paid?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;">${paid?'✓':''}</div>
+        <span style="font-size:13px;font-weight:600;color:${paid?'var(--muted)':esFuturo?'var(--muted)':'var(--text)'};">${d.label}${esFuturo?' <span style="font-size:10px;color:var(--muted)">próximo</span>':''}</span>
+      </div>
+      <span style="font-size:14px;font-weight:700;color:${paid?'var(--green)':esFuturo?'var(--muted)':'var(--text)'};">${valor>0?fmt(valor):'—'}</span>
+    </div>`;
+  }).join('');
+
+  return {totalPagado, totalPendiente, totalMes};
+}
+
+function toggleAndreaDia(fecha){
+  const pagados=load('andreaPagados')||{};
+  pagados[fecha]=!pagados[fecha];
+  save('andreaPagados',pagados);
+  calcAndrea();
+  // También actualizar el total en render
+  render();
+}
+
+function detectAndrea(){
+  const saved=load('andrea');
+  const vEl=document.getElementById('andValor');
+  if(vEl) vEl.value=saved?.valor||0;
   calcAndrea();
 }
 
