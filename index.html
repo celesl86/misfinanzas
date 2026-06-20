@@ -409,7 +409,7 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
     <h3 id="con-title">Nuevo consumo</h3>
     <div class="field"><label>Descripción</label><input type="text" id="con-nombre" placeholder="Ej: Pigmento"></div>
     <div class="field"><label>Monto total ($)</label><input type="text" inputmode="decimal" id="con-monto" placeholder="Ej: 30000" autocomplete="off" oninput="updateImpacto()"></div>
-    <div class="field"><label>Cuotas</label>
+    <div class="field"><label>Cuotas totales</label>
       <select id="con-cuotas" onchange="updateImpacto()">
         <option value="1">1 cuota (contado)</option>
         <option value="2">2 cuotas</option>
@@ -419,6 +419,15 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
         <option value="12">12 cuotas</option>
         <option value="18">18 cuotas</option>
         <option value="24">24 cuotas</option>
+      </select>
+    </div>
+    <div class="field"><label>Estoy en la cuota N°</label>
+      <select id="con-cuota-ini" onchange="updateImpacto()">
+        <option value="1">1 (la cargué desde el inicio)</option>
+        <option value="2">2</option><option value="3">3</option><option value="4">4</option>
+        <option value="5">5</option><option value="6">6</option><option value="7">7</option>
+        <option value="8">8</option><option value="9">9</option><option value="10">10</option>
+        <option value="11">11</option><option value="12">12</option>
       </select>
     </div>
     <div class="field"><label>Tarjeta</label>
@@ -539,6 +548,10 @@ let collVars = { verduleria:true, carniceria:false, perfumeria:false, almacen:fa
 function k(t){ return `mf3_${t}_${curY}_${curM}`; }
 function load(t){ try{ return JSON.parse(localStorage.getItem(k(t)))||null; }catch{ return null; } }
 function save(t,d){ localStorage.setItem(k(t), JSON.stringify(d)); }
+// Consumos de tarjeta y consultorio se guardan GLOBALMENTE (no por mes)
+function kg(t){ return `mf3_global_${t}`; }
+function loadG(t){ try{ return JSON.parse(localStorage.getItem(kg(t)))||null; }catch{ return null; } }
+function saveG(t,d){ localStorage.setItem(kg(t), JSON.stringify(d)); }
 function fmt(n){ return '$'+Number(n||0).toLocaleString('es-AR'); }
 
 // Gastos fijos: combina base con datos guardados del mes
@@ -625,12 +638,14 @@ function impactoMes(tarjId, fechaStr){
   if(f.getDate()>t.cierre){ mes++; if(mes>11){mes=0;año++;} }
   return {mes,año};
 }
-// Devuelve array de {mes,año} para cada cuota
-function impactosCuotas(tarjId, fechaStr, cuotas){
+// Devuelve array de {mes,año} para las cuotas RESTANTES desde cuotaInicial
+function impactosCuotas(tarjId, fechaStr, cuotas, cuotaInicial){
   const base=impactoMes(tarjId,fechaStr);
+  const inicio=(cuotaInicial||1)-1; // offset en meses
+  const restantes=cuotas-(cuotaInicial||1)+1;
   const result=[];
-  for(let i=0;i<cuotas;i++){
-    let mes=base.mes+i, año=base.año;
+  for(let i=0;i<restantes;i++){
+    let mes=base.mes+inicio+i, año=base.año;
     while(mes>11){mes-=12;año++;}
     result.push({mes,año});
   }
@@ -640,20 +655,20 @@ function updateImpacto(){
   const tid=document.getElementById('con-tarjeta').value;
   const fecha=document.getElementById('con-fecha').value;
   const cuotas=parseInt(document.getElementById('con-cuotas').value)||1;
-  const monto=parseFloat(document.getElementById('con-monto').value)||0;
+  const cuotaIni=parseInt(document.getElementById('con-cuota-ini').value)||1;
+  const monto=parseMonto(document.getElementById('con-monto').value)||0;
   const t=TARJETAS[tid];
   if(!fecha||!t){ document.getElementById('con-impacto').innerHTML='Completá la fecha para ver'; return; }
   const cuotaMonto=cuotas>1?Math.round(monto/cuotas):monto;
-  const impactos=impactosCuotas(tid,fecha,cuotas);
+  const impactos=impactosCuotas(tid,fecha,cuotas,cuotaIni);
   if(cuotas===1){
     document.getElementById('con-impacto').innerHTML=
       `Impacta en <b>${MESES[impactos[0].mes]} ${impactos[0].año}</b> · Cierre día ${t.cierre}`;
   } else {
-    const lista=impactos.map((imp,i)=>
-      `<span style="color:var(--text)">${MESES_C[imp.mes]} ${imp.año}</span>`
-    ).join(' · ');
+    const restantes=cuotas-cuotaIni+1;
+    const lista=impactos.map(i=>`<span style="color:var(--text)">${MESES_C[i.mes]} ${i.año}</span>`).join(' → ');
     document.getElementById('con-impacto').innerHTML=
-      `${cuotas} cuotas de <b>${fmt(cuotaMonto)}</b><br><span style="font-size:11px">${lista}</span>`;
+      `Cuota ${cuotaIni}/${cuotas} · ${restantes} cuota${restantes!==1?'s':''} de <b>${fmt(cuotaMonto)}</b><br><span style="font-size:11px">${lista}</span>`;
   }
 }
 
@@ -662,11 +677,12 @@ function consumosDelMes(consumos, mes, año){
   const result=[];
   consumos.forEach(c=>{
     const cuotas=c.cuotas||1;
+    const cuotaIni=c.cuotaInicial||1;
     const cuotaMonto=Math.round(Number(c.monto)/cuotas);
-    const impactos=impactosCuotas(c.tarjeta,c.fecha,cuotas);
+    const impactos=impactosCuotas(c.tarjeta,c.fecha,cuotas,cuotaIni);
     impactos.forEach((imp,i)=>{
       if(imp.mes===mes&&imp.año===año){
-        result.push({...c, montoCuota:cuotaMonto, cuotaNum:i+1, cuotaTotal:cuotas});
+        result.push({...c, montoCuota:cuotaMonto, cuotaNum:cuotaIni+i, cuotaTotal:cuotas});
       }
     });
   });
@@ -677,9 +693,9 @@ function consumosDelMes(consumos, mes, año){
 function render(){
   const fijos    = loadFijos();
   const vars     = loadVars();
-  const consumos = load('consumos') || [];
+  const consumos = loadG('consumos') || [];
   const ingresos = load('ingresos') || [];
-  const atenciones = load('consultorio') || [];
+  const atenciones = loadG('consultorio') || [];
 
   const totalFijos = fijos.reduce((a,g)=>a+Number(g.monto||0),0);
   const totalVars  = calcTotalVars(vars);
@@ -912,12 +928,14 @@ function renderTarjetas(consumos, consumosMes){
     // Mostrar todos los consumos de esta tarjeta con info de cuotas
     const itemsHTML=mis.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(c=>{
       const cuotas=c.cuotas||1;
+      const cuotaIni=c.cuotaInicial||1;
       const cuotaMonto=Math.round(Number(c.monto)/cuotas);
-      const impactos=impactosCuotas(c.tarjeta,c.fecha,cuotas);
-      const cuotaLabel=cuotas>1?` · ${cuotas} cuotas de ${fmt(cuotaMonto)}`:'';
+      const impactos=impactosCuotas(c.tarjeta,c.fecha,cuotas,cuotaIni);
+      const restantes=cuotas-cuotaIni+1;
+      const cuotaLabel=cuotas>1?` · cuota ${cuotaIni}/${cuotas} · ${fmt(cuotaMonto)}/mes`:'';
       const mesesLabel=cuotas>1
         ? impactos.map(i=>MESES_C[i.mes]).join('→')
-        : `→ ${MESES_C[impactos[0].mes]} ${impactos[0].año}`;
+        : `→ ${MESES_C[impactos[0]?.mes]} ${impactos[0]?.año}`;
       return `<div class="cr-row" onclick="editConsumoModal('${c.id}')">
         <div><div class="cr-name">${c.nombre}${cuotaLabel}</div><div class="cr-date">${fmtFecha(c.fecha)}</div></div>
         <div class="cr-right"><div class="cr-amt">${fmt(c.monto)}</div><div class="cr-imp">${mesesLabel}</div></div>
@@ -944,19 +962,21 @@ function openConsumoModal(tarjId){
   document.getElementById('con-nombre').value='';
   document.getElementById('con-monto').value='';
   document.getElementById('con-cuotas').value='1';
+  document.getElementById('con-cuota-ini').value='1';
   document.getElementById('con-tarjeta').value=tarjId||'amex';
   document.getElementById('con-fecha').value=new Date().toISOString().split('T')[0];
   document.getElementById('con-del').style.display='none';
   updateImpacto(); openModal('consumo');
 }
 function editConsumoModal(id){
-  const list=load('consumos')||[];
+  const list=loadG('consumos')||[];
   const c=list.find(x=>x.id===id); if(!c) return;
   editingCon=id;
   document.getElementById('con-title').textContent='Editar consumo';
   document.getElementById('con-nombre').value=c.nombre;
   document.getElementById('con-monto').value=c.monto;
   document.getElementById('con-cuotas').value=c.cuotas||1;
+  document.getElementById('con-cuota-ini').value=c.cuotaInicial||1;
   document.getElementById('con-tarjeta').value=c.tarjeta;
   document.getElementById('con-fecha').value=c.fecha;
   document.getElementById('con-del').style.display='block';
@@ -966,18 +986,19 @@ function saveConsumo(){
   const nombre=document.getElementById('con-nombre').value.trim();
   const monto=parseMonto(document.getElementById('con-monto').value);
   const cuotas=parseInt(document.getElementById('con-cuotas').value)||1;
+  const cuotaInicial=parseInt(document.getElementById('con-cuota-ini').value)||1;
   const tarjeta=document.getElementById('con-tarjeta').value;
   const fecha=document.getElementById('con-fecha').value;
   if(!nombre||!monto||!fecha){ toast('Completá todos los campos'); return; }
-  const list=load('consumos')||[];
-  const nuevo={nombre,monto,cuotas,tarjeta,fecha};
+  const list=loadG('consumos')||[];
+  const nuevo={nombre,monto,cuotas,tarjeta,fecha,cuotaInicial};
   if(editingCon){ const i=list.findIndex(x=>x.id===editingCon); if(i>=0) list[i]={...list[i],...nuevo}; }
   else list.push({id:'c'+Date.now(),...nuevo});
-  save('consumos',list); closeModal('consumo');
+  saveG('consumos',list); closeModal('consumo');
   toast(cuotas>1?`Guardado en ${cuotas} cuotas ✓`:'Guardado ✓'); render();
 }
 function deleteConsumo(){
-  save('consumos',(load('consumos')||[]).filter(x=>x.id!==editingCon));
+  saveG('consumos',(loadG('consumos')||[]).filter(x=>x.id!==editingCon));
   closeModal('consumo'); toast('Eliminado'); render();
 }
 
@@ -988,7 +1009,7 @@ function setConsFilter(f){
     const el=document.getElementById('cf-tab-'+x);
     if(el){ el.style.color=x===f?'var(--a1)':'var(--muted)'; el.style.background=x===f?'rgba(108,99,255,.15)':'var(--card)'; }
   });
-  const atenciones=(load('consultorio')||[]).filter(a=>{ const f2=new Date(a.fecha+'T12:00:00'); return f2.getMonth()===curM&&f2.getFullYear()===curY; });
+  const atenciones=(loadG('consultorio')||[]).filter(a=>{ const f2=new Date(a.fecha+'T12:00:00'); return f2.getMonth()===curM&&f2.getFullYear()===curY; });
   renderConsultorio(atenciones);
 }
 
@@ -1039,7 +1060,7 @@ function openConsModal(){
   openModal('cons');
 }
 function editConsModal(id){
-  const list=load('consultorio')||[];
+  const list=loadG('consultorio')||[];
   const a=list.find(x=>x.id===id); if(!a) return;
   editingCons=id;
   document.getElementById('cons-title').textContent='Editar atención';
@@ -1057,7 +1078,7 @@ function saveCons(){
   const fecha=document.getElementById('cons-fecha').value;
   const monto=parseMonto(document.getElementById('cons-monto').value);
   if(!nombre||!fecha||!monto){ toast('Completá nombre, fecha y monto'); return; }
-  const list=load('consultorio')||[];
+  const list=loadG('consultorio')||[];
   const nuevo={
     id: editingCons||('k'+Date.now()),
     nombre,
@@ -1069,11 +1090,11 @@ function saveCons(){
   };
   if(editingCons){ const i=list.findIndex(x=>x.id===editingCons); if(i>=0) list[i]=nuevo; }
   else list.push(nuevo);
-  save('consultorio',list);
+  saveG('consultorio',list);
   closeModal('cons'); toast('Guardado ✓'); render();
 }
 function deleteCons(){
-  save('consultorio',(load('consultorio')||[]).filter(x=>x.id!==editingCons));
+  saveG('consultorio',(loadG('consultorio')||[]).filter(x=>x.id!==editingCons));
   closeModal('cons'); toast('Eliminado'); render();
 }
 
