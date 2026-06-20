@@ -181,6 +181,9 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
 .toast.show{opacity:1;}
 .empty{text-align:center;padding:36px 20px;color:var(--muted);font-size:13px;}
 
+.andrea-input{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:15px;font-weight:700;width:100%;text-align:right;outline:none;}
+.andrea-input:focus{border-color:var(--a2);}
+
 /* AUTOCOMPLETE PACIENTES */
 .autocomplete-wrap{position:relative;}
 .autocomplete-list{position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--a1);border-radius:var(--rs);z-index:300;max-height:180px;overflow-y:auto;display:none;}
@@ -276,6 +279,29 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
   <div id="overdue-banner"></div>
   <!-- FIJOS: collapsible wrapper -->
   <div id="gastos-fijos-list"></div>
+  <!-- ANDREA CALCULATOR -->
+  <div class="coll-section" style="margin-bottom:10px;">
+    <div class="coll-hdr" onclick="toggleAndrea()">
+      <div class="coll-left"><span class="coll-emoji">🧹</span><span class="coll-label">Andrea</span></div>
+      <div class="coll-right"><span class="coll-total" id="andrea-total-pill" style="color:var(--a2)"></span><span class="coll-arrow" id="andrea-arrow">▼</span></div>
+    </div>
+    <div class="coll-body" id="andrea-body">
+      <div class="coll-inner">
+        <div style="display:flex;gap:10px;margin-bottom:10px;">
+          <div style="flex:1"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Martes</div>
+            <input class="andrea-input" type="number" id="andMartes" value="4" min="0" max="5" oninput="calcAndrea()"></div>
+          <div style="flex:1"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Jueves</div>
+            <input class="andrea-input" type="number" id="andJueves" value="4" min="0" max="5" oninput="calcAndrea()"></div>
+          <div style="flex:1"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">$ por día</div>
+            <input class="andrea-input" type="number" id="andValor" value="0" oninput="calcAndrea()"></div>
+        </div>
+        <div style="background:rgba(0,201,167,.1);border-radius:var(--rs);padding:12px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;color:var(--a2);">Total del mes</span>
+          <span style="font-size:22px;font-weight:900;color:var(--a2);" id="andTotal">$0</span>
+        </div>
+      </div>
+    </div>
+  </div>
   <!-- VARIABLES: collapsible wrappers -->
   <div id="gastos-vars-list"></div>
 </div>
@@ -645,7 +671,7 @@ document.querySelectorAll('.mth-btn').forEach(el=>el.addEventListener('click',()
 function applyMonth(){
   curM=Number(document.getElementById('sel-mes').value);
   curY=Number(document.getElementById('sel-year').value);
-  updateMonthPills(); closeModal('mes'); render();
+  updateMonthPills(); closeModal('mes'); detectAndrea(); render();
 }
 
 // ─── IMPACTO TARJETA ─────────────────────────────────────────────────────────
@@ -1039,6 +1065,40 @@ function deleteConsumo(){
   closeModal('consumo'); toast('Eliminado'); render();
 }
 
+// ── ANDREA ───────────────────────────────────────────────────────────────────
+let andreaOpen = true;
+function toggleAndrea(){
+  andreaOpen=!andreaOpen;
+  document.getElementById('andrea-body').className='coll-body'+(andreaOpen?' open':'');
+  document.getElementById('andrea-arrow').className='coll-arrow'+(andreaOpen?' open':'');
+}
+function calcAndrea(){
+  const m=Number(document.getElementById('andMartes')?.value)||0;
+  const j=Number(document.getElementById('andJueves')?.value)||0;
+  const v=Number(document.getElementById('andValor')?.value)||0;
+  const total=(m+j)*v;
+  const fmtd=fmt(total);
+  const el=document.getElementById('andTotal');
+  const pill=document.getElementById('andrea-total-pill');
+  if(el) el.textContent=fmtd;
+  if(pill) pill.textContent=total>0?fmtd:'';
+}
+function detectAndrea(){
+  const m=curM, y=curY;
+  let martes=0, jueves=0;
+  const dias=new Date(y,m+1,0).getDate();
+  for(let d=1;d<=dias;d++){
+    const dow=new Date(y,m,d).getDay();
+    if(dow===2) martes++;
+    if(dow===4) jueves++;
+  }
+  const mEl=document.getElementById('andMartes');
+  const jEl=document.getElementById('andJueves');
+  if(mEl) mEl.value=martes;
+  if(jEl) jEl.value=jueves;
+  calcAndrea();
+}
+
 // ── AUTOCOMPLETE PACIENTES ───────────────────────────────────────────────────
 function acSearch(query){
   const list=document.getElementById('ac-list');
@@ -1331,6 +1391,7 @@ function importarDatos(input){
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 updateMonthPills();
+detectAndrea();
 render();
 </script>
 </body>
