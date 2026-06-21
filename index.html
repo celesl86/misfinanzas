@@ -992,7 +992,7 @@ function renderVars(vars){
       <div class="vi-row">
         <div class="vi-check-btn ${item.checked?'checked':''}" ontouchstart="toggleVarItem(${ci},${ii},'item')" onclick="toggleVarItem(${ci},${ii},'item')">${item.checked?'✓':''}</div>
         <div class="vi-name ${item.checked?'checked':''}">${item.nombre}</div>
-        <input class="vi-monto" type="text" inputmode="decimal" placeholder="$" value="${item.monto||''}"
+        <input class="vi-monto" id="vm_${ci}_${ii}_item" type="text" inputmode="decimal" placeholder="$" value="${item.monto||''}"
           oninput="updateVarMonto(${ci},${ii},'item',this.value)"
           onchange="updateVarMonto(${ci},${ii},'item',this.value)">
       </div>`).join('');
@@ -1000,7 +1000,7 @@ function renderVars(vars){
       <div class="vi-row">
         <div class="vi-check-btn ${item.checked?'checked':''}" ontouchstart="toggleVarItem(${ci},${ei},'extra')" onclick="toggleVarItem(${ci},${ei},'extra')">${item.checked?'✓':''}</div>
         <div class="vi-name ${item.checked?'checked':''}">${item.nombre}</div>
-        <input class="vi-monto" type="text" inputmode="decimal" placeholder="$" value="${item.monto||''}"
+        <input class="vi-monto" id="vm_${ci}_${ei}_extra" type="text" inputmode="decimal" placeholder="$" value="${item.monto||''}"
           oninput="updateVarMonto(${ci},${ei},'extra',this.value)"
           onchange="updateVarMonto(${ci},${ei},'extra',this.value)">
         <div onclick="deleteVarItem(${ci},${ei})" style="width:28px;height:28px;border-radius:6px;background:rgba(255,99,112,.15);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:14px;color:var(--a3);">✕</div>
@@ -1052,12 +1052,26 @@ function toggleVarItem(ci,ii,tipo){
   renderVars(loadVars());
 }
 function updateVarMonto(ci,ii,tipo,val){
-  const vars=loadVars();
-  vars[ci][tipo][ii].monto=parseMonto(val);
-  saveVars(vars);
-  // no re-render completo para no perder foco
-  const el=document.querySelector(`#gastos-vars-list .coll-section:nth-child(${ci+1}) .coll-total`);
-  if(el){ const total=([...vars[ci].items,...vars[ci].extra]).filter(i=>Number(i.monto||0)>0).reduce((a,i)=>a+Number(i.monto||0),0); el.textContent=total>0?fmt(total):''; }
+  // Guardar en storage directamente sin pasar por loadVars/saveVars
+  const saved = load('vars') || {};
+  const cat = VAR_CATS[ci];
+  if(!cat) return;
+  const s = saved[cat.id] || {};
+  if(tipo==='item'){
+    if(!s.items) s.items = cat.items.map(()=>({monto:0,checked:false}));
+    if(!s.items[ii]) s.items[ii]={monto:0,checked:false};
+    s.items[ii].monto = parseMonto(val);
+  } else {
+    if(!s.extra) s.extra=[];
+    if(s.extra[ii]) s.extra[ii].monto = parseMonto(val);
+  }
+  saved[cat.id] = s;
+  save('vars', saved);
+  // Actualizar solo el total visible
+  const vars = loadVars();
+  const total=[...vars[ci].items,...vars[ci].extra].filter(i=>Number(i.monto||0)>0).reduce((a,i)=>a+Number(i.monto||0),0);
+  const sectionEl=document.querySelector(`#gastos-vars-list .coll-section:nth-child(${ci+1}) .coll-total`);
+  if(sectionEl) sectionEl.textContent=total>0?fmt(total):'';
 }
 function deleteVarItem(ci,ei){
   const saved = load('vars') || {};
