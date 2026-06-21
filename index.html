@@ -1038,21 +1038,7 @@ function toggleVarItem(ci,ii,tipo){
   const vars=loadVars();
   vars[ci][tipo][ii].checked=!vars[ci][tipo][ii].checked;
   saveVars(vars);
-  // Actualizar solo el check visualmente sin re-renderizar todo
-  const checked=vars[ci][tipo][ii].checked;
-  const rows=document.querySelectorAll(`#gastos-vars-list .coll-section:nth-child(${ci+1}) .vi-row`);
-  const offset=tipo==='extra'?vars[ci].items.length:0;
-  const row=rows[offset+ii];
-  if(row){
-    const check=row.querySelector('.vi-check-btn');
-    const name=row.querySelector('.vi-name');
-    if(check){ check.className='vi-check-btn'+(checked?' checked':''); check.textContent=checked?'✓':''; }
-    if(name) name.className='vi-name'+(checked?' checked':'');
-  }
-  // Actualizar total
-  const total=[...vars[ci].items,...vars[ci].extra].filter(i=>Number(i.monto||0)>0).reduce((a,i)=>a+Number(i.monto||0),0);
-  const sectionEl=document.querySelector(`#gastos-vars-list .coll-section:nth-child(${ci+1}) .coll-total`);
-  if(sectionEl) sectionEl.textContent=total>0?fmt(total):'';
+  renderVars(vars);
 }
 function updateVarMonto(ci,ii,tipo,val){
   const vars=loadVars();
