@@ -1003,6 +1003,7 @@ function renderVars(vars){
         <input class="vi-monto" type="text" inputmode="decimal" placeholder="$" value="${item.monto||''}"
           oninput="updateVarMonto(${ci},${ei},'extra',this.value)"
           onchange="updateVarMonto(${ci},${ei},'extra',this.value)">
+        <div onclick="deleteVarItem(${ci},${ei})" style="width:28px;height:28px;border-radius:6px;background:rgba(255,99,112,.15);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:14px;color:var(--a3);">✕</div>
       </div>`).join('');
     return `<div class="coll-section">
       <div class="coll-hdr" onclick="toggleCollVar('${cat.id}')">
@@ -1057,6 +1058,16 @@ function updateVarMonto(ci,ii,tipo,val){
   // no re-render completo para no perder foco
   const el=document.querySelector(`#gastos-vars-list .coll-section:nth-child(${ci+1}) .coll-total`);
   if(el){ const total=([...vars[ci].items,...vars[ci].extra]).filter(i=>Number(i.monto||0)>0).reduce((a,i)=>a+Number(i.monto||0),0); el.textContent=total>0?fmt(total):''; }
+}
+function deleteVarItem(ci,ei){
+  const saved = load('vars') || {};
+  const cat = VAR_CATS[ci];
+  if(!cat) return;
+  const s = saved[cat.id] || {};
+  if(s.extra) s.extra.splice(ei,1);
+  saved[cat.id] = s;
+  save('vars', saved);
+  renderVars(loadVars());
 }
 function addVarItem(ci){
   const input=document.getElementById(`vadd-${ci}`);
