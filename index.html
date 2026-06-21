@@ -994,14 +994,18 @@ function renderVars(vars){
         <div class="vi-check ${item.checked?'checked':''}" onclick="toggleVarItem(${ci},${ii},'item')"></div>
         <div class="vi-name ${item.checked?'checked':''}">${item.nombre}</div>
         <input class="vi-monto" type="text" inputmode="decimal" placeholder="$" value="${item.monto||''}"
-          onchange="updateVarMonto(${ci},${ii},'item',this.value)" onclick="event.stopPropagation()">
+          oninput="updateVarMonto(${ci},${ii},'item',this.value)"
+          onchange="updateVarMonto(${ci},${ii},'item',this.value)"
+          onclick="event.stopPropagation()">
       </div>`).join('');
     const extraHTML=cat.extra.map((item,ei)=>`
       <div class="vi-row">
         <div class="vi-check ${item.checked?'checked':''}" onclick="toggleVarItem(${ci},${ei},'extra')"></div>
         <div class="vi-name ${item.checked?'checked':''}">${item.nombre}</div>
         <input class="vi-monto" type="text" inputmode="decimal" placeholder="$" value="${item.monto||''}"
-          onchange="updateVarMonto(${ci},${ei},'extra',this.value)" onclick="event.stopPropagation()">
+          oninput="updateVarMonto(${ci},${ei},'extra',this.value)"
+          onchange="updateVarMonto(${ci},${ei},'extra',this.value)"
+          onclick="event.stopPropagation()">
       </div>`).join('');
     return `<div class="coll-section">
       <div class="coll-hdr" onclick="toggleCollVar('${cat.id}')">
