@@ -1032,12 +1032,23 @@ function toggleCollVar(catId){ collVars[catId]=!collVars[catId]; render(); }
 let _lastToggle = 0;
 function toggleVarItem(ci,ii,tipo){
   const now = Date.now();
-  if(now - _lastToggle < 300) return; // prevent double-fire
+  if(now - _lastToggle < 400) return;
   _lastToggle = now;
-  const vars=loadVars();
-  vars[ci][tipo][ii].checked=!vars[ci][tipo][ii].checked;
-  saveVars(vars);
-  renderVars(vars);
+  const saved = load('vars') || {};
+  const cat = VAR_CATS[ci];
+  if(!cat) return;
+  const s = saved[cat.id] || {};
+  if(tipo==='item'){
+    if(!s.items) s.items = cat.items.map(()=>({monto:0,checked:false}));
+    if(!s.items[ii]) s.items[ii] = {monto:0,checked:false};
+    s.items[ii].checked = !s.items[ii].checked;
+  } else {
+    if(!s.extra) s.extra = [];
+    if(s.extra[ii]) s.extra[ii].checked = !s.extra[ii].checked;
+  }
+  saved[cat.id] = s;
+  save('vars', saved);
+  renderVars(loadVars());
 }
 function updateVarMonto(ci,ii,tipo,val){
   const vars=loadVars();
