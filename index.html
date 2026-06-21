@@ -88,9 +88,8 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
 .vcc-list{}
 .vi-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
 .vi-row:last-child{border-bottom:none;}
-.vi-check-btn{width:36px;height:36px;border-radius:8px;border:2px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:15px;font-weight:900;color:#000;-webkit-tap-highlight-color:transparent;transition:all .15s;}
+.vi-check-btn{width:40px;height:40px;border-radius:8px;border:2px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:16px;font-weight:900;color:#000;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;}
 .vi-check-btn.checked{background:var(--a2);border-color:var(--a2);}
-.vi-check-btn:active{transform:scale(.88);}
 .vi-name{flex:1;font-size:13px;font-weight:500;color:var(--text);}
 .vi-name.checked{color:var(--muted);text-decoration:line-through;}
 .vi-monto{background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:5px 9px;width:100px;text-align:right;font-size:13px;font-weight:700;color:var(--text);outline:none;}
@@ -991,9 +990,7 @@ function renderVars(vars){
     const isOpen=collVars[cat.id]!==false; // default open for first
     const itemsHTML=cat.items.map((item,ii)=>`
       <div class="vi-row">
-        <button class="vi-check-btn ${item.checked?'checked':''}" onclick="toggleVarItem(${ci},${ii},'item')" type="button">
-          ${item.checked?'✓':''}
-        </button>
+        <div class="vi-check-btn ${item.checked?'checked':''}" ontouchstart="toggleVarItem(${ci},${ii},'item')" onclick="toggleVarItem(${ci},${ii},'item')">${item.checked?'✓':''}</div>
         <div class="vi-name ${item.checked?'checked':''}">${item.nombre}</div>
         <input class="vi-monto" type="text" inputmode="decimal" placeholder="$" value="${item.monto||''}"
           oninput="updateVarMonto(${ci},${ii},'item',this.value)"
@@ -1001,9 +998,7 @@ function renderVars(vars){
       </div>`).join('');
     const extraHTML=cat.extra.map((item,ei)=>`
       <div class="vi-row">
-        <button class="vi-check-btn ${item.checked?'checked':''}" onclick="toggleVarItem(${ci},${ei},'extra')" type="button">
-          ${item.checked?'✓':''}
-        </button>
+        <div class="vi-check-btn ${item.checked?'checked':''}" ontouchstart="toggleVarItem(${ci},${ei},'extra')" onclick="toggleVarItem(${ci},${ei},'extra')">${item.checked?'✓':''}</div>
         <div class="vi-name ${item.checked?'checked':''}">${item.nombre}</div>
         <input class="vi-monto" type="text" inputmode="decimal" placeholder="$" value="${item.monto||''}"
           oninput="updateVarMonto(${ci},${ei},'extra',this.value)"
@@ -1034,7 +1029,11 @@ function renderVars(vars){
 }
 function toggleCollVar(catId){ collVars[catId]=!collVars[catId]; render(); }
 
+let _lastToggle = 0;
 function toggleVarItem(ci,ii,tipo){
+  const now = Date.now();
+  if(now - _lastToggle < 300) return; // prevent double-fire
+  _lastToggle = now;
   const vars=loadVars();
   vars[ci][tipo][ii].checked=!vars[ci][tipo][ii].checked;
   saveVars(vars);
