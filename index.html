@@ -388,11 +388,11 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
     <div class="rc" style="flex:1"><div class="rc-lbl">Con factura</div><div class="rc-val" id="cons-fact" style="color:var(--a4)">0</div></div>
   </div>
 
-  <!-- FILTRO FACTURA -->
-  <div style="display:flex;gap:8px;margin:0 16px 14px;">
-    <div class="tab active" id="cf-tab-all" onclick="setConsFilter('all')" style="flex:1;background:var(--card);border-radius:var(--rs);padding:9px;text-align:center;font-size:12px;font-weight:700;cursor:pointer;color:var(--a1);">Todas</div>
-    <div class="tab" id="cf-tab-fact" onclick="setConsFilter('fact')" style="flex:1;background:var(--card);border-radius:var(--rs);padding:9px;text-align:center;font-size:12px;font-weight:700;cursor:pointer;color:var(--muted);">Con factura</div>
-    <div class="tab" id="cf-tab-nofact" onclick="setConsFilter('nofact')" style="flex:1;background:var(--card);border-radius:var(--rs);padding:9px;text-align:center;font-size:12px;font-weight:700;cursor:pointer;color:var(--muted);">Sin factura</div>
+  <div style="display:flex;gap:8px;margin:0 16px 14px;overflow-x:auto;padding-bottom:2px;">
+    <div class="tab active" id="cf-tab-all" onclick="setConsFilter('all')" style="flex:1;background:var(--card);border-radius:var(--rs);padding:9px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;color:var(--a1);white-space:nowrap;">Todas</div>
+    <div class="tab" id="cf-tab-transf" onclick="setConsFilter('transf')" style="flex:1;background:var(--card);border-radius:var(--rs);padding:9px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;color:var(--muted);white-space:nowrap;">🔁 Transf.</div>
+    <div class="tab" id="cf-tab-efect" onclick="setConsFilter('efect')" style="flex:1;background:var(--card);border-radius:var(--rs);padding:9px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;color:var(--muted);white-space:nowrap;">💵 Efectivo</div>
+    <div class="tab" id="cf-tab-fact" onclick="setConsFilter('fact')" style="flex:1;background:var(--card);border-radius:var(--rs);padding:9px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;color:var(--muted);white-space:nowrap;">📄 Factura</div>
   </div>
 
   <div class="sec">
@@ -451,6 +451,12 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
       <select id="cons-factura">
         <option value="no">No</option>
         <option value="si">Sí</option>
+      </select>
+    </div>
+    <div class="field"><label>Forma de pago</label>
+      <select id="cons-fpago">
+        <option value="transferencia">Transferencia</option>
+        <option value="efectivo">Efectivo</option>
       </select>
     </div>
     <div class="field"><label>Notas (opcional)</label><input type="text" id="cons-notas" placeholder="Ej: primera consulta, plan alimentario..."></div>
@@ -1321,7 +1327,7 @@ document.addEventListener('click', e=>{
 // ── CONSULTORIO ──────────────────────────────────────────────────────────────
 function setConsFilter(f){
   consFilter=f;
-  ['all','fact','nofact'].forEach(x=>{
+  ['all','transf','efect','fact'].forEach(x=>{
     const el=document.getElementById('cf-tab-'+x);
     if(el){ el.style.color=x===f?'var(--a1)':'var(--muted)'; el.style.background=x===f?'rgba(108,99,255,.15)':'var(--card)'; }
   });
@@ -1344,7 +1350,8 @@ function renderConsultorio(atenciones){
 
   let filtradas=atenciones;
   if(consFilter==='fact')   filtradas=atenciones.filter(a=>a.factura==='si');
-  if(consFilter==='nofact') filtradas=atenciones.filter(a=>a.factura!=='si');
+  if(consFilter==='transf') filtradas=atenciones.filter(a=>!a.fpago||a.fpago==='transferencia');
+  if(consFilter==='efect')  filtradas=atenciones.filter(a=>a.fpago==='efectivo');
 
   filtradas.sort((a,b)=>b.fecha.localeCompare(a.fecha));
 
@@ -1354,6 +1361,10 @@ function renderConsultorio(atenciones){
       <div class="item-body">
         <div class="item-name">${a.nombre}</div>
         <div class="item-meta">DNI ${a.dni||'—'} · ${fmtFecha(a.fecha)}${a.notas?' · '+a.notas:''}</div>
+        <div style="margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;">
+          ${a.fpago==='efectivo'?'<span style="font-size:10px;background:rgba(255,209,102,.12);color:var(--a4);padding:2px 7px;border-radius:10px;font-weight:700;">💵 Efectivo</span>':'<span style="font-size:10px;background:rgba(108,99,255,.12);color:var(--a1);padding:2px 7px;border-radius:10px;font-weight:700;">🔁 Transferencia</span>'}
+          ${a.factura==='si'?'<span style="font-size:10px;background:rgba(255,209,102,.12);color:var(--a4);padding:2px 7px;border-radius:10px;font-weight:700;">📄 Factura</span>':''}
+        </div>
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div class="item-amt" style="color:var(--green)">${fmt(a.monto)}</div>
@@ -1371,6 +1382,7 @@ function openConsModal(){
   document.getElementById('cons-fecha').value=new Date().toISOString().split('T')[0];
   document.getElementById('cons-monto').value='';
   document.getElementById('cons-factura').value='no';
+  document.getElementById('cons-fpago').value='transferencia';
   document.getElementById('cons-notas').value='';
   document.getElementById('cons-del').style.display='none';
   openModal('cons');
@@ -1385,6 +1397,7 @@ function editConsModal(id){
   document.getElementById('cons-fecha').value=a.fecha;
   document.getElementById('cons-monto').value=a.monto;
   document.getElementById('cons-factura').value=a.factura||'no';
+  document.getElementById('cons-fpago').value=a.fpago||'transferencia';
   document.getElementById('cons-notas').value=a.notas||'';
   document.getElementById('cons-del').style.display='block';
   openModal('cons');
@@ -1402,6 +1415,7 @@ function saveCons(){
     fecha,
     monto,
     factura: document.getElementById('cons-factura').value,
+    fpago:   document.getElementById('cons-fpago').value,
     notas:   document.getElementById('cons-notas').value.trim(),
   };
   if(editingCons){ const i=list.findIndex(x=>x.id===editingCons); if(i>=0) list[i]=nuevo; }
