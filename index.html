@@ -392,6 +392,7 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
     <div class="tab active" id="cf-tab-all" onclick="setConsFilter('all')" style="flex:1;background:var(--card);border-radius:var(--rs);padding:9px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;color:var(--a1);white-space:nowrap;">Todas</div>
     <div class="tab" id="cf-tab-transf" onclick="setConsFilter('transf')" style="flex:1;background:var(--card);border-radius:var(--rs);padding:9px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;color:var(--muted);white-space:nowrap;">🔁 Transf.</div>
     <div class="tab" id="cf-tab-efect" onclick="setConsFilter('efect')" style="flex:1;background:var(--card);border-radius:var(--rs);padding:9px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;color:var(--muted);white-space:nowrap;">💵 Efectivo</div>
+    <div class="tab" id="cf-tab-mixto" onclick="setConsFilter('mixto')" style="flex:1;background:var(--card);border-radius:var(--rs);padding:9px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;color:var(--muted);white-space:nowrap;">🔀 Mixto</div>
     <div class="tab" id="cf-tab-fact" onclick="setConsFilter('fact')" style="flex:1;background:var(--card);border-radius:var(--rs);padding:9px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;color:var(--muted);white-space:nowrap;">📄 Factura</div>
   </div>
 
@@ -454,10 +455,15 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
       </select>
     </div>
     <div class="field"><label>Forma de pago</label>
-      <select id="cons-fpago">
-        <option value="transferencia">Transferencia</option>
-        <option value="efectivo">Efectivo</option>
+      <select id="cons-fpago" onchange="toggleMixto()">
+        <option value="transferencia">🔁 Transferencia (facturás todo)</option>
+        <option value="efectivo">💵 Efectivo (no facturás)</option>
+        <option value="mixto">🔀 Mixto (parte transf., parte efectivo)</option>
       </select>
+    </div>
+    <div class="field" id="cons-mixto-wrap" style="display:none">
+      <label>Monto en transferencia ($) — lo que facturás</label>
+      <input type="text" inputmode="decimal" id="cons-monto-transf" placeholder="0" autocomplete="off">
     </div>
     <div class="field"><label>Notas (opcional)</label><input type="text" id="cons-notas" placeholder="Ej: primera consulta, plan alimentario..."></div>
     <div class="btn-row">
@@ -1327,7 +1333,7 @@ document.addEventListener('click', e=>{
 // ── CONSULTORIO ──────────────────────────────────────────────────────────────
 function setConsFilter(f){
   consFilter=f;
-  ['all','transf','efect','fact'].forEach(x=>{
+  ['all','transf','efect','mixto','fact'].forEach(x=>{
     const el=document.getElementById('cf-tab-'+x);
     if(el){ el.style.color=x===f?'var(--a1)':'var(--muted)'; el.style.background=x===f?'rgba(108,99,255,.15)':'var(--card)'; }
   });
@@ -1352,6 +1358,7 @@ function renderConsultorio(atenciones){
   if(consFilter==='fact')   filtradas=atenciones.filter(a=>a.factura==='si');
   if(consFilter==='transf') filtradas=atenciones.filter(a=>!a.fpago||a.fpago==='transferencia');
   if(consFilter==='efect')  filtradas=atenciones.filter(a=>a.fpago==='efectivo');
+  if(consFilter==='mixto')  filtradas=atenciones.filter(a=>a.fpago==='mixto');
 
   filtradas.sort((a,b)=>b.fecha.localeCompare(a.fecha));
 
@@ -1362,7 +1369,7 @@ function renderConsultorio(atenciones){
         <div class="item-name">${a.nombre}</div>
         <div class="item-meta">DNI ${a.dni||'—'} · ${fmtFecha(a.fecha)}${a.notas?' · '+a.notas:''}</div>
         <div style="margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;">
-          ${a.fpago==='efectivo'?'<span style="font-size:10px;background:rgba(255,209,102,.12);color:var(--a4);padding:2px 7px;border-radius:10px;font-weight:700;">💵 Efectivo</span>':'<span style="font-size:10px;background:rgba(108,99,255,.12);color:var(--a1);padding:2px 7px;border-radius:10px;font-weight:700;">🔁 Transferencia</span>'}
+          ${a.fpago==='efectivo'?'<span style="font-size:10px;background:rgba(255,209,102,.12);color:var(--a4);padding:2px 7px;border-radius:10px;font-weight:700;">💵 Efectivo</span>':a.fpago==='mixto'?`<span style="font-size:10px;background:rgba(108,99,255,.12);color:var(--a1);padding:2px 7px;border-radius:10px;font-weight:700;">🔀 Mixto${a.montoTransf?(' · transf. '+fmt(a.montoTransf)):''}</span>`:'<span style="font-size:10px;background:rgba(108,99,255,.12);color:var(--a1);padding:2px 7px;border-radius:10px;font-weight:700;">🔁 Transferencia</span>'}
           ${a.factura==='si'?'<span style="font-size:10px;background:rgba(255,209,102,.12);color:var(--a4);padding:2px 7px;border-radius:10px;font-weight:700;">📄 Factura</span>':''}
         </div>
       </div>
@@ -1374,6 +1381,10 @@ function renderConsultorio(atenciones){
   : '<div class="empty">Sin atenciones registradas este mes</div>';
 }
 
+function toggleMixto(){
+  const v=document.getElementById('cons-fpago').value;
+  document.getElementById('cons-mixto-wrap').style.display=v==='mixto'?'block':'none';
+}
 function openConsModal(){
   editingCons=null;
   document.getElementById('cons-title').textContent='Nueva atención';
@@ -1383,6 +1394,8 @@ function openConsModal(){
   document.getElementById('cons-monto').value='';
   document.getElementById('cons-factura').value='no';
   document.getElementById('cons-fpago').value='transferencia';
+  document.getElementById('cons-monto-transf').value='';
+  document.getElementById('cons-mixto-wrap').style.display='none';
   document.getElementById('cons-notas').value='';
   document.getElementById('cons-del').style.display='none';
   openModal('cons');
@@ -1398,6 +1411,8 @@ function editConsModal(id){
   document.getElementById('cons-monto').value=a.monto;
   document.getElementById('cons-factura').value=a.factura||'no';
   document.getElementById('cons-fpago').value=a.fpago||'transferencia';
+  document.getElementById('cons-monto-transf').value=a.montoTransf||'';
+  document.getElementById('cons-mixto-wrap').style.display=a.fpago==='mixto'?'block':'none';
   document.getElementById('cons-notas').value=a.notas||'';
   document.getElementById('cons-del').style.display='block';
   openModal('cons');
@@ -1416,6 +1431,7 @@ function saveCons(){
     monto,
     factura: document.getElementById('cons-factura').value,
     fpago:   document.getElementById('cons-fpago').value,
+    montoTransf: parseMonto(document.getElementById('cons-monto-transf').value)||0,
     notas:   document.getElementById('cons-notas').value.trim(),
   };
   if(editingCons){ const i=list.findIndex(x=>x.id===editingCons); if(i>=0) list[i]=nuevo; }
