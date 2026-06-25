@@ -643,6 +643,8 @@ const VAR_CATS = [
            'Conservas','Galletitas / cereales','Snacks','Bebidas','Otros'] },
   { id:'nafta', nombre:'Nafta / Transporte', emoji:'⛽', color:'#ff9800',
     items:['Nafta','Peaje','Estacionamiento','Transporte público','Otros'] },
+  { id:'farmacia', nombre:'Farmacia', emoji:'💊', color:'#ff6b6b',
+    items:['Medicamentos','Vitaminas / suplementos','Anticonceptivos','Otros'] },
   { id:'extras', nombre:'Gastos extras', emoji:'✨', color:'#a29bfe',
     items:[] },
 ];
@@ -654,7 +656,7 @@ let consFilter = 'all';
 let expandedGF = {};
 // collapsible sections: fijos = bool, vars = {catId: bool}
 let collFijos = true;
-let collVars = { verduleria:true, carniceria:false, perfumeria:false, almacen:false, nafta:false, extras:false };
+let collVars = { verduleria:true, carniceria:false, perfumeria:false, almacen:false, nafta:false, farmacia:false, extras:false };
 let tarjetasOpen = { amex:true, 'visa-galicia':false, 'visa-provincia':false, master:false, mp:false };
 
 function toggleTarjeta(id){
