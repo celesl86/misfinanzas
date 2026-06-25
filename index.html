@@ -702,6 +702,7 @@ function loadVars(){
       nombre,
       monto:   s.items?.[i]?.monto   || 0,
       checked: s.items?.[i]?.checked || false,
+      fpago:   s.items?.[i]?.fpago   || 'contado',
     }));
     // items extra agregados por el usuario
     const extra = s.extra || [];
@@ -712,7 +713,7 @@ function saveVars(vars){
   const obj = {};
   vars.forEach(cat => {
     obj[cat.id] = {
-      items: cat.items.map(i=>({ monto:i.monto, checked:i.checked })),
+      items: cat.items.map(i=>({ monto:i.monto, checked:i.checked, fpago:i.fpago||'contado' })),
       extra: cat.extra,
     };
   });
@@ -901,7 +902,9 @@ function render(){
 function calcTotalVars(vars){
   let t=0;
   vars.forEach(cat=>{
-    [...cat.items,...cat.extra].forEach(i=>{ if(Number(i.monto||0)>0) t+=Number(i.monto); });
+    [...cat.items,...cat.extra].forEach(i=>{
+      if(Number(i.monto||0)>0 && i.fpago!=='tarjeta') t+=Number(i.monto);
+    });
   });
   return t;
 }
@@ -1035,6 +1038,12 @@ function renderVars(vars){
       <div class="vi-row">
         <div class="vi-check-btn ${item.checked?'checked':''}" ontouchstart="toggleVarItem(${ci},${ii},'item')" onclick="toggleVarItem(${ci},${ii},'item')">${item.checked?'✓':''}</div>
         <div class="vi-name ${item.checked?'checked':''}">${item.nombre}</div>
+        <select style="background:var(--surf);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:11px;color:${item.fpago==='tarjeta'?'var(--a4)':item.fpago==='debito'?'var(--a2)':'var(--muted)'};outline:none;flex-shrink:0;"
+          onchange="updateVarFpago(${ci},${ii},'item',this.value)" onclick="event.stopPropagation()">
+          <option value="contado" ${item.fpago==='contado'||!item.fpago?'selected':''}>💵</option>
+          <option value="debito" ${item.fpago==='debito'?'selected':''}>🏦</option>
+          <option value="tarjeta" ${item.fpago==='tarjeta'?'selected':''}>💳</option>
+        </select>
         <input class="vi-monto" id="vm_${ci}_${ii}_item" type="text" inputmode="decimal" placeholder="$" value="${item.monto||''}"
           oninput="updateVarMonto(${ci},${ii},'item',this.value)"
           onchange="updateVarMonto(${ci},${ii},'item',this.value)">
@@ -1043,6 +1052,12 @@ function renderVars(vars){
       <div class="vi-row">
         <div class="vi-check-btn ${item.checked?'checked':''}" ontouchstart="toggleVarItem(${ci},${ei},'extra')" onclick="toggleVarItem(${ci},${ei},'extra')">${item.checked?'✓':''}</div>
         <div class="vi-name ${item.checked?'checked':''}">${item.nombre}</div>
+        <select style="background:var(--surf);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:11px;color:${item.fpago==='tarjeta'?'var(--a4)':item.fpago==='debito'?'var(--a2)':'var(--muted)'};outline:none;flex-shrink:0;"
+          onchange="updateVarFpago(${ci},${ei},'extra',this.value)" onclick="event.stopPropagation()">
+          <option value="contado" ${item.fpago==='contado'||!item.fpago?'selected':''}>💵</option>
+          <option value="debito" ${item.fpago==='debito'?'selected':''}>🏦</option>
+          <option value="tarjeta" ${item.fpago==='tarjeta'?'selected':''}>💳</option>
+        </select>
         <input class="vi-monto" id="vm_${ci}_${ei}_extra" type="text" inputmode="decimal" placeholder="$" value="${item.monto||''}"
           oninput="updateVarMonto(${ci},${ei},'extra',this.value)"
           onchange="updateVarMonto(${ci},${ei},'extra',this.value)">
@@ -1093,6 +1108,22 @@ function toggleVarItem(ci,ii,tipo){
   saved[cat.id] = s;
   save('vars', saved);
   renderVars(loadVars());
+}
+function updateVarFpago(ci,ii,tipo,val){
+  const saved=load('vars')||{};
+  const cat=VAR_CATS[ci];
+  if(!cat) return;
+  const s=saved[cat.id]||{};
+  if(tipo==='item'){
+    if(!s.items) s.items=cat.items.map(()=>({monto:0,checked:false,fpago:'contado'}));
+    if(!s.items[ii]) s.items[ii]={monto:0,checked:false,fpago:'contado'};
+    s.items[ii].fpago=val;
+  } else {
+    if(!s.extra) s.extra=[];
+    if(s.extra[ii]) s.extra[ii].fpago=val;
+  }
+  saved[cat.id]=s;
+  save('vars',saved);
 }
 function updateVarMonto(ci,ii,tipo,val){
   // Guardar en storage directamente sin pasar por loadVars/saveVars
