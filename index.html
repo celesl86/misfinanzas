@@ -653,6 +653,12 @@ let expandedGF = {};
 // collapsible sections: fijos = bool, vars = {catId: bool}
 let collFijos = true;
 let collVars = { verduleria:true, carniceria:false, perfumeria:false, almacen:false, nafta:false };
+let tarjetasOpen = { amex:true, 'visa-galicia':false, 'visa-provincia':false, master:false, mp:false };
+
+function toggleTarjeta(id){
+  tarjetasOpen[id]=!tarjetasOpen[id];
+  render();
+}
 
 // ─── STORAGE ─────────────────────────────────────────────────────────────────
 function k(t){ return `mf3_${t}_${curY}_${curM}`; }
@@ -1140,7 +1146,8 @@ function renderTarjetas(consumos, consumosMes){
     let cie=new Date(hoy.getFullYear(),hoy.getMonth(),t.cierre);
     if(cie<hoy) cie=new Date(hoy.getFullYear(),hoy.getMonth()+1,t.cierre);
     const dias=Math.ceil((cie-hoy)/86400000);
-    // Mostrar todos los consumos de esta tarjeta con info de cuotas
+    const isOpen=tarjetasOpen[id]!==false; // default open
+
     const itemsHTML=mis.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(c=>{
       const esRec=c.cuotas==='recurrente';
       const cuotas=esRec?1:Number(c.cuotas)||1;
@@ -1157,21 +1164,31 @@ function renderTarjetas(consumos, consumosMes){
         <div class="cr-right"><div class="cr-amt">${montoDisplay}</div><div class="cr-imp">${mesesLabel}</div></div>
       </div>`;
     }).join('') || '<div style="font-size:12px;color:var(--muted);padding:8px 0">Sin consumos</div>';
-    return `<div class="tc">
-      <div class="tc-top">
-        <div class="tc-name"><span class="tc-dot" style="background:${t.color}"></span>${t.nombre}</div>
-        <div class="tc-dates">Cierre: <b>día ${t.cierre}</b><br>Vence: <b>día ${t.vence}</b></div>
-      </div>
-      <div class="tc-total-row">
-        <div>
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Este mes</div>
-          <div class="tc-total">${fmt(total)}</div>
-          ${totalUSD>0?`<div style="font-size:12px;color:var(--a4);font-weight:700;margin-top:2px">+ US$ ${totalUSD.toLocaleString('es-AR',{minimumFractionDigits:2})}</div>`:''}
+
+    return `<div class="coll-section" style="margin-bottom:10px;">
+      <div class="coll-hdr" onclick="toggleTarjeta('${id}')">
+        <div class="coll-left">
+          <span style="width:10px;height:10px;border-radius:50%;background:${t.color};display:inline-block;margin-right:4px;flex-shrink:0;"></span>
+          <span class="coll-label">${t.nombre}</span>
         </div>
-        <div class="tc-cierre-info">Próx. cierre<br><b>en ${dias} día${dias!==1?'s':''}</b></div>
+        <div class="coll-right">
+          <div style="text-align:right;">
+            ${total>0?`<span class="coll-total" style="color:var(--a1)">${fmt(total)}</span>`:''}
+            ${totalUSD>0?`<span style="font-size:11px;color:var(--a4);margin-left:4px;">+US$${totalUSD}</span>`:''}
+          </div>
+          <span class="coll-arrow ${isOpen?'open':''}">▼</span>
+        </div>
       </div>
-      <div class="tc-items">${itemsHTML}</div>
-      <button class="tc-add-btn" onclick="openConsumoModal('${id}')">+ Agregar consumo</button>
+      <div class="coll-body ${isOpen?'open':''}">
+        <div style="padding:0 16px 14px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;padding-top:10px;">
+            <div style="font-size:11px;color:var(--muted);">Cierre: día ${t.cierre} · Vence: día ${t.vence} · Próx. cierre en ${dias} día${dias!==1?'s':''}</div>
+          </div>
+          ${totalUSD>0?`<div style="background:rgba(255,209,102,.08);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:var(--a4);">💵 + US$ ${totalUSD.toLocaleString('es-AR',{minimumFractionDigits:2})} este mes</div>`:''}
+          ${itemsHTML}
+          <button class="tc-add-btn" onclick="openConsumoModal('${id}')" style="margin-top:10px;">+ Agregar consumo</button>
+        </div>
+      </div>
     </div>`;
   }).join('');
 }
