@@ -1628,10 +1628,16 @@ const COBRO_TARJETAS = {
 const COBROS = [
   { id:'dia5',    label:'1° Cobro — Celeste',  fecha:'Día 5',    color:'var(--a1)' },
   { id:'dia20',   label:'2° Cobro — Celeste',  fecha:'Día 20',   color:'var(--a2)' },
-  { id:'findemes',label:'Fin de mes — Marido', fecha:'Fin de mes',color:'var(--a4)' },
+  { id:'findemes',label:'Fin de mes — Luciano', fecha:'Fin de mes',color:'var(--a4)' },
 ];
 
 let editingTenencia = null;
+let parcialOpen = { dia5:true, dia20:true, findemes:true };
+
+function toggleParcial(id){
+  parcialOpen[id]=!parcialOpen[id];
+  render();
+}
 
 function renderParcial(fijos, consumosMes){
   const el=document.getElementById('parcial-content');
@@ -1715,26 +1721,38 @@ function renderParcial(fijos, consumosMes){
       </div>`;
     }).join('');
 
-    return `<div class="parcial-block ${ok&&ten>0?'ok':!ok&&ten>0?'warn':''}">
-      <div class="pb-header">
-        <div>
-          <div class="pb-title" style="color:${cobro.color}">${cobro.label}</div>
-          <div class="pb-fecha">${cobro.fecha}</div>
+    const isOpen = parcialOpen[cobro.id]!==false;
+
+    return `<div class="coll-section ${ok&&ten>0?'':''}">
+      <div class="coll-hdr" onclick="toggleParcial('${cobro.id}')">
+        <div class="coll-left">
+          <span class="coll-label" style="color:${cobro.color}">${cobro.label}</span>
         </div>
-        <div class="pb-tenencia" onclick="openTenencia('${cobro.id}','${cobro.label}')">
-          <div class="pb-ten-label">Disponible</div>
-          <div class="pb-ten-val ${ten===0?'zero':''}">${ten>0?fmt(ten):'+ Cargar'}</div>
+        <div class="coll-right" style="gap:8px;">
+          ${ten>0?`<span style="font-size:12px;font-weight:700;color:${ok?'var(--green)':'var(--a3)'};">${ok?'✓':'⚠'} ${fmt(Math.abs(disponible))}</span>`:''}
+          <span class="coll-arrow ${isOpen?'open':''}">▼</span>
         </div>
       </div>
-      ${filas||'<div style="font-size:12px;color:var(--muted);padding:8px 0;">Sin gastos asignados</div>'}
-      <div class="pb-footer">
-        <div>
-          <div class="pb-footer-label">Pendiente: <b style="color:var(--a3)">${fmt(pendiente)}</b></div>
-          <div class="pb-footer-label" style="margin-top:3px">Pagado: <b style="color:var(--green)">${fmt(pagado)}</b></div>
-        </div>
-        <div>
-          <div style="font-size:10px;color:var(--muted);text-align:right;margin-bottom:3px">${ten>0?(ok?'✓ Llegás':'⚠️ Te falta'):''}</div>
-          <div class="pb-resultado ${ok&&ten>0?'pos':'neg'}">${ten>0?fmt(Math.abs(disponible)):'—'}</div>
+      <div class="coll-body ${isOpen?'open':''}">
+        <div style="padding:0 16px 14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 12px;border-bottom:1px solid var(--border);margin-bottom:4px;">
+            <span style="font-size:12px;color:var(--muted);">${cobro.fecha}</span>
+            <div class="pb-tenencia" onclick="openTenencia('${cobro.id}','${cobro.label}')">
+              <div class="pb-ten-label">Disponible</div>
+              <div class="pb-ten-val ${ten===0?'zero':''}">${ten>0?fmt(ten):'+ Cargar'}</div>
+            </div>
+          </div>
+          ${filas||'<div style="font-size:12px;color:var(--muted);padding:8px 0;">Sin gastos asignados</div>'}
+          <div class="pb-footer">
+            <div>
+              <div class="pb-footer-label">Pendiente: <b style="color:var(--a3)">${fmt(pendiente)}</b></div>
+              <div class="pb-footer-label" style="margin-top:3px">Pagado: <b style="color:var(--green)">${fmt(pagado)}</b></div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--muted);text-align:right;margin-bottom:3px">${ten>0?(ok?'✓ Llegás':'⚠️ Te falta'):''}</div>
+              <div class="pb-resultado ${ok&&ten>0?'pos':'neg'}">${ten>0?fmt(Math.abs(disponible)):'—'}</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>`;
