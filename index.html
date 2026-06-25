@@ -527,6 +527,7 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
         <option value="12">12 cuotas</option>
         <option value="18">18 cuotas</option>
         <option value="24">24 cuotas</option>
+        <option value="recurrente">🔄 Recurrente (todos los meses)</option>
       </select>
     </div>
     <div class="field"><label>Estoy en la cuota N°</label>
@@ -765,21 +766,33 @@ function impactosCuotas(tarjId, fechaStr, cuotas, cuotaInicial){
 function updateImpacto(){
   const tid=document.getElementById('con-tarjeta').value;
   const fecha=document.getElementById('con-fecha').value;
-  const cuotas=parseInt(document.getElementById('con-cuotas').value)||1;
+  const cuotas=document.getElementById('con-cuotas').value;
   const cuotaIni=parseInt(document.getElementById('con-cuota-ini').value)||1;
   const monto=parseMonto(document.getElementById('con-monto').value)||0;
   const t=TARJETAS[tid];
   if(!fecha||!t){ document.getElementById('con-impacto').innerHTML='Completá la fecha para ver'; return; }
-  const cuotaMonto=cuotas>1?Math.round(monto/cuotas):monto;
-  const impactos=impactosCuotas(tid,fecha,cuotas,cuotaIni);
-  if(cuotas===1){
+
+  // Ocultar cuota inicial si es recurrente o contado
+  const cuotaIniWrap=document.getElementById('con-cuota-ini')?.closest('.field');
+  if(cuotaIniWrap) cuotaIniWrap.style.display=(cuotas==='recurrente'||cuotas==='1')?'none':'block';
+
+  if(cuotas==='recurrente'){
+    const imp=impactoMes(tid,fecha);
+    document.getElementById('con-impacto').innerHTML=
+      `🔄 Aparece todos los meses desde <b>${MESES[imp.mes]} ${imp.año}</b> · ${fmt(monto)}/mes`;
+    return;
+  }
+  const cuotasN=parseInt(cuotas)||1;
+  const cuotaMonto=cuotasN>1?Math.round(monto/cuotasN):monto;
+  const impactos=impactosCuotas(tid,fecha,cuotasN,cuotaIni);
+  if(cuotasN===1){
     document.getElementById('con-impacto').innerHTML=
       `Impacta en <b>${MESES[impactos[0].mes]} ${impactos[0].año}</b> · Cierre día ${t.cierre}`;
   } else {
-    const restantes=cuotas-cuotaIni+1;
+    const restantes=cuotasN-cuotaIni+1;
     const lista=impactos.map(i=>`<span style="color:var(--text)">${MESES_C[i.mes]} ${i.año}</span>`).join(' → ');
     document.getElementById('con-impacto').innerHTML=
-      `Cuota ${cuotaIni}/${cuotas} · ${restantes} cuota${restantes!==1?'s':''} de <b>${fmt(cuotaMonto)}</b><br><span style="font-size:11px">${lista}</span>`;
+      `Cuota ${cuotaIni}/${cuotasN} · ${restantes} cuota${restantes!==1?'s':''} de <b>${fmt(cuotaMonto)}</b><br><span style="font-size:11px">${lista}</span>`;
   }
 }
 
@@ -787,15 +800,25 @@ function updateImpacto(){
 function consumosDelMes(consumos, mes, año){
   const result=[];
   consumos.forEach(c=>{
-    const cuotas=c.cuotas||1;
-    const cuotaIni=c.cuotaInicial||1;
-    const cuotaMonto=Math.round(Number(c.monto)/cuotas);
-    const impactos=impactosCuotas(c.tarjeta,c.fecha,cuotas,cuotaIni);
-    impactos.forEach((imp,i)=>{
-      if(imp.mes===mes&&imp.año===año){
-        result.push({...c, montoCuota:cuotaMonto, cuotaNum:cuotaIni+i, cuotaTotal:cuotas});
+    if(c.cuotas==='recurrente'){
+      // Aparece en todos los meses desde la fecha de inicio
+      const base=impactoMes(c.tarjeta,c.fecha);
+      const baseTotal=(base.año*12+base.mes);
+      const curTotal=(año*12+mes);
+      if(curTotal>=baseTotal){
+        result.push({...c, montoCuota:Number(c.monto), cuotaNum:1, cuotaTotal:1});
       }
-    });
+    } else {
+      const cuotas=Number(c.cuotas)||1;
+      const cuotaIni=c.cuotaInicial||1;
+      const cuotaMonto=Math.round(Number(c.monto)/cuotas);
+      const impactos=impactosCuotas(c.tarjeta,c.fecha,cuotas,cuotaIni);
+      impactos.forEach((imp,i)=>{
+        if(imp.mes===mes&&imp.año===año){
+          result.push({...c, montoCuota:cuotaMonto, cuotaNum:cuotaIni+i, cuotaTotal:cuotas});
+        }
+      });
+    }
   });
   return result;
 }
@@ -1119,16 +1142,16 @@ function renderTarjetas(consumos, consumosMes){
     const dias=Math.ceil((cie-hoy)/86400000);
     // Mostrar todos los consumos de esta tarjeta con info de cuotas
     const itemsHTML=mis.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(c=>{
-      const cuotas=c.cuotas||1;
+      const esRec=c.cuotas==='recurrente';
+      const cuotas=esRec?1:Number(c.cuotas)||1;
       const cuotaIni=c.cuotaInicial||1;
       const cuotaMonto=Math.round(Number(c.monto)/cuotas);
-      const impactos=impactosCuotas(c.tarjeta,c.fecha,cuotas,cuotaIni);
-      const restantes=cuotas-cuotaIni+1;
-      const cuotaLabel=cuotas>1?` · cuota ${cuotaIni}/${cuotas}`:'';
-      const mesesLabel=cuotas>1
+      const impactos=esRec?[impactoMes(c.tarjeta,c.fecha)]:impactosCuotas(c.tarjeta,c.fecha,cuotas,cuotaIni);
+      const cuotaLabel=esRec?' · 🔄 Recurrente':cuotas>1?` · cuota ${cuotaIni}/${cuotas}`:'';
+      const mesesLabel=esRec?`desde ${MESES_C[impactos[0]?.mes]}`:cuotas>1
         ? impactos.map(i=>MESES_C[i.mes]).join('→')
         : `→ ${MESES_C[impactos[0]?.mes]} ${impactos[0]?.año}`;
-      const montoDisplay=c.montoUSD>0?`US$ ${c.montoUSD}`:fmt(cuotaMonto);
+      const montoDisplay=c.montoUSD>0?`US$ ${c.montoUSD}`:fmt(esRec?Number(c.monto):cuotaMonto);
       return `<div class="cr-row" onclick="editConsumoModal('${c.id}')">
         <div><div class="cr-name">${c.nombre}${cuotaLabel}</div><div class="cr-date">${fmtFecha(c.fecha)}</div></div>
         <div class="cr-right"><div class="cr-amt">${montoDisplay}</div><div class="cr-imp">${mesesLabel}</div></div>
@@ -1175,6 +1198,8 @@ function editConsumoModal(id){
   document.getElementById('con-monto').value=c.monto;
   document.getElementById('con-cuotas').value=c.cuotas||1;
   document.getElementById('con-cuota-ini').value=c.cuotaInicial||1;
+  const cuotaIniWrap=document.getElementById('con-cuota-ini')?.closest('.field');
+  if(cuotaIniWrap) cuotaIniWrap.style.display=(c.cuotas==='recurrente'||c.cuotas===1||c.cuotas==='1')?'none':'block';
   document.getElementById('con-tarjeta').value=c.tarjeta;
   document.getElementById('con-fecha').value=c.fecha;
   document.getElementById('con-monto-usd').value=c.montoUSD||'';
@@ -1184,8 +1209,9 @@ function editConsumoModal(id){
 function saveConsumo(){
   const nombre=document.getElementById('con-nombre').value.trim();
   const monto=parseMonto(document.getElementById('con-monto').value);
-  const cuotas=parseInt(document.getElementById('con-cuotas').value)||1;
-  const cuotaInicial=parseInt(document.getElementById('con-cuota-ini').value)||1;
+  const cuotasVal=document.getElementById('con-cuotas').value;
+  const cuotas=cuotasVal==='recurrente'?'recurrente':parseInt(cuotasVal)||1;
+  const cuotaInicial=cuotas==='recurrente'?1:parseInt(document.getElementById('con-cuota-ini').value)||1;
   const tarjeta=document.getElementById('con-tarjeta').value;
   const fecha=document.getElementById('con-fecha').value;
   if(!nombre||!monto||!fecha){ toast('Completá todos los campos'); return; }
