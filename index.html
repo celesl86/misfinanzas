@@ -1226,14 +1226,14 @@ function editConsumoModal(id){
 function saveConsumo(){
   const nombre=document.getElementById('con-nombre').value.trim();
   const monto=parseMonto(document.getElementById('con-monto').value);
+  const montoUSD=parseMonto(document.getElementById('con-monto-usd').value)||0;
   const cuotasVal=document.getElementById('con-cuotas').value;
   const cuotas=cuotasVal==='recurrente'?'recurrente':parseInt(cuotasVal)||1;
   const cuotaInicial=cuotas==='recurrente'?1:parseInt(document.getElementById('con-cuota-ini').value)||1;
   const tarjeta=document.getElementById('con-tarjeta').value;
   const fecha=document.getElementById('con-fecha').value;
-  if(!nombre||!monto||!fecha){ toast('Completá todos los campos'); return; }
+  if(!nombre||(!monto&&!montoUSD)||!fecha){ toast('Completá nombre, monto y fecha'); return; }
   const list=loadG('consumos')||[];
-  const montoUSD = parseMonto(document.getElementById('con-monto-usd').value)||0;
   const nuevo={nombre,monto,cuotas,tarjeta,fecha,cuotaInicial,montoUSD};
   if(editingCon){ const i=list.findIndex(x=>x.id===editingCon); if(i>=0) list[i]={...list[i],...nuevo}; }
   else list.push({id:'c'+Date.now(),...nuevo});
