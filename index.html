@@ -1758,27 +1758,22 @@ function renderParcial(fijos, consumosMes){
       </div>`;
     }).join('');
 
-    const isOpen = parcialOpen[cobro.id]!==false;
-
-    return `<div class="coll-section ${ok&&ten>0?'':''}">
+    return `<div class="coll-section">
       <div class="coll-hdr" onclick="toggleParcial('${cobro.id}')">
         <div class="coll-left">
           <span class="coll-label" style="color:${cobro.color}">${cobro.label}</span>
         </div>
         <div class="coll-right" style="gap:8px;">
-          ${ten>0?`<span style="font-size:12px;font-weight:700;color:${ok?'var(--green)':'var(--a3)'};">${ok?'✓':'⚠'} ${fmt(Math.abs(disponible))}</span>`:''}
+          <div onclick="event.stopPropagation();openTenencia('${cobro.id}','${cobro.label}')" style="text-align:right;cursor:pointer;">
+            <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;">Disponible</div>
+            <div style="font-size:14px;font-weight:800;color:${ten>0?'var(--green)':'var(--muted)'};">${ten>0?fmt(ten):'+ Cargar'}</div>
+          </div>
+          ${ten>0?`<span style="font-size:11px;font-weight:700;color:${ok?'var(--green)':'var(--a3)'};">${ok?'✓':'⚠'}<br>${fmt(Math.abs(disponible))}</span>`:''}
           <span class="coll-arrow ${isOpen?'open':''}">▼</span>
         </div>
       </div>
       <div class="coll-body ${isOpen?'open':''}">
         <div style="padding:0 16px 14px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 12px;border-bottom:1px solid var(--border);margin-bottom:4px;">
-            <span style="font-size:12px;color:var(--muted);">${cobro.fecha}</span>
-            <div class="pb-tenencia" onclick="openTenencia('${cobro.id}','${cobro.label}')">
-              <div class="pb-ten-label">Disponible</div>
-              <div class="pb-ten-val ${ten===0?'zero':''}">${ten>0?fmt(ten):'+ Cargar'}</div>
-            </div>
-          </div>
           ${filas||'<div style="font-size:12px;color:var(--muted);padding:8px 0;">Sin gastos asignados</div>'}
           <div class="pb-footer">
             <div>
