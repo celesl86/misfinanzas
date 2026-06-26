@@ -284,7 +284,8 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
     <div class="hg-card" onclick="goTo('s-tarjetas')"><div class="hg-icon">💳</div><div class="hg-lbl">Tarjetas</div><div class="hg-sub">Consumos del mes</div><div class="hg-amt" id="hg-tarj" style="color:var(--a4)">$0</div></div>
     <div class="hg-card" onclick="goTo('s-ingresos')"><div class="hg-icon">💵</div><div class="hg-lbl">Ingresos</div><div class="hg-sub">Lo que entra</div><div class="hg-amt" id="hg-ing" style="color:var(--green)">$0</div></div>
     <div class="hg-card" onclick="goTo('s-consultorio')"><div class="hg-icon">🩺</div><div class="hg-lbl">Consultorio</div><div class="hg-sub">Atenciones del mes</div><div class="hg-amt" id="hg-cons" style="color:var(--a2)">$0</div></div>
-    <div class="hg-card" onclick="goTo('s-parcial')" style="grid-column:span 2;border-color:rgba(108,99,255,.4)"><div class="hg-icon">⚖️</div><div class="hg-lbl">Parcial</div><div class="hg-sub">Tenencias vs pagos pendientes</div><div class="hg-amt" id="hg-parcial" style="color:var(--a1)">Ver →</div></div>
+    <div class="hg-card" onclick="goTo('s-parcial')" style="border-color:rgba(108,99,255,.4)"><div class="hg-icon">⚖️</div><div class="hg-lbl">Parcial</div><div class="hg-sub">Tenencias vs pagos</div><div class="hg-amt" style="color:var(--a1)">Ver →</div></div>
+    <div class="hg-card" onclick="goTo('s-lista')"><div class="hg-icon">📝</div><div class="hg-lbl">Lista de compras</div><div class="hg-sub">Lo que falta comprar</div><div class="hg-amt" id="hg-lista" style="color:var(--a2)">Ver →</div></div>
     <div class="hg-card" onclick="goTo('s-resumen')" style="grid-column:span 2"><div class="hg-icon">📊</div><div class="hg-lbl">Resumen</div><div class="hg-sub">Todo junto</div><div class="hg-amt" style="color:var(--a1)">Ver →</div></div>
   </div>
 </div>
@@ -399,6 +400,32 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
   <div class="sec">
     <div class="sec-hdr"><span class="sec-title">Atenciones del mes</span><span class="sec-add" onclick="openConsModal()">+ Agregar</span></div>
     <div id="consultorio-list"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ LISTA DE COMPRAS ═══════════════════════════════ -->
+<div class="screen" id="s-lista">
+  <div class="topbar">
+    <div class="topbar-back" onclick="goTo('s-home')">‹ Inicio</div>
+    <div class="topbar-title">📝 Lista de compras</div>
+  </div>
+  <div style="padding:0 16px;">
+    <!-- Add item row -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <input type="text" id="lista-input" placeholder="Agregar ítem..." 
+        style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:var(--rs);padding:12px 14px;color:var(--text);font-size:15px;outline:none;"
+        onkeydown="if(event.key==='Enter')addListaItem()">
+      <button onclick="addListaItem()" style="background:var(--a1);border:none;border-radius:var(--rs);padding:12px 18px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;">+</button>
+    </div>
+    <!-- Filter tabs -->
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <div id="lt-all" onclick="setListaFilter('all')" style="flex:1;background:rgba(108,99,255,.15);border-radius:var(--rs);padding:8px;text-align:center;font-size:12px;font-weight:700;cursor:pointer;color:var(--a1);">Todo</div>
+      <div id="lt-pend" onclick="setListaFilter('pend')" style="flex:1;background:var(--card);border-radius:var(--rs);padding:8px;text-align:center;font-size:12px;font-weight:700;cursor:pointer;color:var(--muted);">Pendiente</div>
+      <div id="lt-done" onclick="setListaFilter('done')" style="flex:1;background:var(--card);border-radius:var(--rs);padding:8px;text-align:center;font-size:12px;font-weight:700;cursor:pointer;color:var(--muted);">Comprado ✓</div>
+    </div>
+    <div id="lista-items"></div>
+    <!-- Clear completed button -->
+    <button onclick="clearListaDone()" style="width:100%;background:rgba(255,99,112,.1);border:1px solid rgba(255,99,112,.2);border-radius:var(--rs);padding:11px;color:var(--a3);font-size:13px;font-weight:700;cursor:pointer;margin-top:10px;">🗑 Limpiar comprados</button>
   </div>
 </div>
 
@@ -626,29 +653,16 @@ const CAT_EMOJI = {
   verduleria:'🥬', carniceria:'🥩', perfumeria:'🧴', almacen:'🛒', nafta:'⛽', otros:'📌',
 };
 
-// Variables predefinidas
+// Variables predefinidas — sin ítems, solo categorías
 const VAR_CATS = [
-  { id:'verduleria', nombre:'Verdulería', emoji:'🥬', color:'#06d6a0',
-    items:['Frutas','Verduras de hoja','Tomate','Papa, batata, zapallo','Limones','Otros'] },
-  { id:'carniceria', nombre:'Carnicería', emoji:'🥩', color:'#ff9f43',
-    items:['Pollo','Carne picada','Bifes / milanesas','Cerdo','Otros'] },
-  { id:'perfumeria', nombre:'Perfumería / Limpieza', emoji:'🧴', color:'#e91e8c',
-    items:['Pañales Mateo','Óleo calcáreo','Algodón','Lavandina','Detergente',
-           'Jabón líquido lavarropas','Jabón de tocador','Dentífrico',
-           'Perfume para pisos','Blend electromuebles','Cif crema',
-           'Antigrasa cocina','Esponja','Esponja de alambre','Trapos',
-           'Trapo de piso','Escoba / cepillo','Desmaquillante','Otros'] },
-  { id:'almacen', nombre:'Almacén / Dietética', emoji:'🛒', color:'#00b4d8',
-    items:['Lácteos (leche, yogur, queso)','Aceite','Arroz / fideos / legumbres',
-           'Conservas','Galletitas / cereales','Snacks','Bebidas','Otros'] },
-  { id:'nafta', nombre:'Nafta / Transporte', emoji:'⛽', color:'#ff9800',
-    items:['Nafta','Peaje','Estacionamiento','Transporte público','Otros'] },
-  { id:'farmacia', nombre:'Farmacia', emoji:'💊', color:'#ff6b6b',
-    items:['Medicamentos','Vitaminas / suplementos','Anticonceptivos','Otros'] },
-  { id:'delivery', nombre:'Delivery / Salidas', emoji:'🛵', color:'#e17055',
-    items:['Pedidos Ya','Rappi','Uber Eats','Salida a comer','Otros'] },
-  { id:'extras', nombre:'Gastos extras', emoji:'✨', color:'#a29bfe',
-    items:[] },
+  { id:'verduleria', nombre:'Verdulería',          emoji:'🥬', color:'#06d6a0', items:[] },
+  { id:'carniceria', nombre:'Carnicería',           emoji:'🥩', color:'#ff9f43', items:[] },
+  { id:'perfumeria', nombre:'Perfumería / Limpieza',emoji:'🧴', color:'#e91e8c', items:[] },
+  { id:'almacen',    nombre:'Almacén / Dietética',  emoji:'🛒', color:'#00b4d8', items:[] },
+  { id:'nafta',      nombre:'Nafta / Transporte',   emoji:'⛽', color:'#ff9800', items:[] },
+  { id:'farmacia',   nombre:'Farmacia',              emoji:'💊', color:'#ff6b6b', items:[] },
+  { id:'delivery',   nombre:'Delivery / Salidas',   emoji:'🛵', color:'#e17055', items:[] },
+  { id:'extras',     nombre:'Gastos extras',         emoji:'✨', color:'#a29bfe', items:[] },
 ];
 
 // ─── ESTADO ──────────────────────────────────────────────────────────────────
@@ -732,6 +746,7 @@ function goTo(id){
     const sc=['s-home','s-gastos','s-parcial','s-consultorio','s-resumen'];
     b.classList.toggle('active', sc[i]===id);
   });
+  if(id==='s-lista') renderLista();
   window.scrollTo(0,0);
   render();
 }
@@ -899,6 +914,8 @@ function render(){
   renderConsultorio(atencionesM);
   // PARCIAL
   renderParcial(fijos, consumosMes);
+  // LISTA
+  renderLista();
   // RESUMEN
   renderResumen(fijos, vars, consumosMes, totalFijos, totalVars, totalAndrea, totalTarj, totalIng, totalCons, saldo);
 }
@@ -1648,6 +1665,71 @@ function parseMonto(str){
     s = s.replace('.','');
   }
   return parseFloat(s)||0;
+}
+
+// ── LISTA DE COMPRAS ─────────────────────────────────────────────────────────
+let listaFilter = 'all';
+
+function loadLista(){ try{ return JSON.parse(localStorage.getItem('mf3_lista'))||[]; }catch{ return []; } }
+function saveLista(d){ localStorage.setItem('mf3_lista', JSON.stringify(d)); }
+
+function addListaItem(){
+  const input=document.getElementById('lista-input');
+  const nombre=input.value.trim();
+  if(!nombre) return;
+  const lista=loadLista();
+  lista.unshift({id:'l'+Date.now(), nombre, done:false});
+  saveLista(lista);
+  input.value='';
+  renderLista();
+}
+
+function toggleListaItem(id){
+  const lista=loadLista();
+  const item=lista.find(x=>x.id===id);
+  if(item) item.done=!item.done;
+  saveLista(lista);
+  renderLista();
+}
+
+function deleteListaItem(id){
+  saveLista(loadLista().filter(x=>x.id!==id));
+  renderLista();
+}
+
+function clearListaDone(){
+  saveLista(loadLista().filter(x=>!x.done));
+  renderLista();
+}
+
+function setListaFilter(f){
+  listaFilter=f;
+  ['all','pend','done'].forEach(x=>{
+    const el=document.getElementById('lt-'+x);
+    if(el){ el.style.background=x===f?'rgba(108,99,255,.15)':'var(--card)'; el.style.color=x===f?'var(--a1)':'var(--muted)'; }
+  });
+  renderLista();
+}
+
+function renderLista(){
+  const el=document.getElementById('lista-items');
+  if(!el) return;
+  let lista=loadLista();
+  if(listaFilter==='pend') lista=lista.filter(x=>!x.done);
+  if(listaFilter==='done') lista=lista.filter(x=>x.done);
+  const pendCount=loadLista().filter(x=>!x.done).length;
+  const hgLista=document.getElementById('hg-lista');
+  if(hgLista) hgLista.textContent=pendCount>0?`${pendCount} pendiente${pendCount!==1?'s':''}` :'Ver →';
+  if(!lista.length){ el.innerHTML='<div class="empty">Lista vacía ✓</div>'; return; }
+  el.innerHTML=lista.map(item=>`
+    <div style="background:var(--card);border-radius:var(--rs);padding:13px 14px;margin-bottom:8px;border:1px solid ${item.done?'rgba(6,214,160,.3)':'var(--border)'};display:flex;align-items:center;gap:12px;${item.done?'opacity:.6':''}">
+      <div ontouchstart="toggleListaItem('${item.id}')" onclick="toggleListaItem('${item.id}')"
+        style="width:26px;height:26px;border-radius:7px;border:2px solid ${item.done?'var(--green)':'var(--border)'};background:${item.done?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:14px;font-weight:900;color:#000;touch-action:manipulation;">
+        ${item.done?'✓':''}
+      </div>
+      <span style="flex:1;font-size:14px;font-weight:500;${item.done?'text-decoration:line-through;color:var(--muted)':'color:var(--text)'}">${item.nombre}</span>
+      <div onclick="deleteListaItem('${item.id}')" style="width:26px;height:26px;border-radius:6px;background:rgba(255,99,112,.15);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:13px;color:var(--a3);">✕</div>
+    </div>`).join('');
 }
 
 // ── PARCIAL ──────────────────────────────────────────────────────────────────
