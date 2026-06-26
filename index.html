@@ -1758,6 +1758,8 @@ function renderParcial(fijos, consumosMes){
       </div>`;
     }).join('');
 
+    const isOpen = parcialOpen[cobro.id]!==false;
+
     return `<div class="coll-section">
       <div class="coll-hdr" onclick="toggleParcial('${cobro.id}')">
         <div class="coll-left">
