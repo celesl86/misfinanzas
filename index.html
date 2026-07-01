@@ -823,23 +823,38 @@ function consumosDelMes(consumos, mes, año){
   const result=[];
   consumos.forEach(c=>{
     if(c.cuotas==='recurrente'){
-      // Aparece en todos los meses desde la fecha de inicio
-      const base=impactoMes(c.tarjeta,c.fecha);
-      const baseTotal=(base.año*12+base.mes);
-      const curTotal=(año*12+mes);
+      const fechaBase=new Date(c.fecha+'T12:00:00');
+      const baseMes=fechaBase.getMonth(), baseAño=fechaBase.getFullYear();
+      const baseTotal=baseAño*12+baseMes;
+      const curTotal=año*12+mes;
       if(curTotal>=baseTotal){
-        result.push({...c, montoCuota:Number(c.monto), cuotaNum:1, cuotaTotal:1});
+        result.push({...c, montoCuota:Number(c._montoCuota||c.monto), cuotaNum:1, cuotaTotal:1});
       }
     } else {
       const cuotas=Number(c.cuotas)||1;
       const cuotaIni=c.cuotaInicial||1;
       const cuotaMonto=c._montoCuota||Math.round(Number(c.monto)/cuotas);
-      const impactos=impactosCuotas(c.tarjeta,c.fecha,cuotas,cuotaIni);
-      impactos.forEach((imp,i)=>{
-        if(imp.mes===mes&&imp.año===año){
-          result.push({...c, montoCuota:cuotaMonto, cuotaNum:cuotaIni+i, cuotaTotal:cuotas});
+
+      if(c._montoCuota){
+        // Consumo simple nuevo: la fecha indica directamente el mes de la primera cuota
+        const fechaBase=new Date(c.fecha+'T12:00:00');
+        const baseMes=fechaBase.getMonth(), baseAño=fechaBase.getFullYear();
+        for(let i=0;i<cuotas;i++){
+          let m=baseMes+i, y=baseAño;
+          while(m>11){m-=12;y++;}
+          if(m===mes&&y===año){
+            result.push({...c, montoCuota:cuotaMonto, cuotaNum:i+1, cuotaTotal:cuotas});
+          }
         }
-      });
+      } else {
+        // Consumo legacy: lógica de cierre de tarjeta
+        const impactos=impactosCuotas(c.tarjeta,c.fecha,cuotas,cuotaIni);
+        impactos.forEach((imp,i)=>{
+          if(imp.mes===mes&&imp.año===año){
+            result.push({...c, montoCuota:cuotaMonto, cuotaNum:cuotaIni+i, cuotaTotal:cuotas});
+          }
+        });
+      }
     }
   });
   return result;
