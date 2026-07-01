@@ -835,7 +835,7 @@ function consumosDelMes(consumos, mes, año){
       const cuotaIni=c.cuotaInicial||1;
       const cuotaMonto=c._montoCuota||Math.round(Number(c.monto)/cuotas);
 
-      if(c._montoCuota){
+      if(c._montoCuota!==undefined){
         // Consumo simple nuevo: la fecha indica directamente el mes de la primera cuota
         const fechaBase=new Date(c.fecha+'T12:00:00');
         const baseMes=fechaBase.getMonth(), baseAño=fechaBase.getFullYear();
