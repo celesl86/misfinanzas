@@ -542,28 +542,23 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
   <div class="modal">
     <button class="m-close" onclick="closeModal('consumo')">✕</button>
     <h3 id="con-title">Nuevo consumo</h3>
-    <div class="field"><label>Descripción</label><input type="text" id="con-nombre" placeholder="Ej: Pigmento"></div>
-    <div class="field"><label>Monto total ($)</label><input type="text" inputmode="decimal" id="con-monto" placeholder="Ej: 30000" autocomplete="off" oninput="updateImpacto()"></div>
-    <div class="field"><label>Cuotas totales</label>
+    <div class="field"><label>Descripción</label><input type="text" id="con-nombre" placeholder="Ej: Librum-Librum"></div>
+    <div class="field"><label>Monto de la cuota ($) — lo que pagás este mes</label><input type="text" inputmode="decimal" id="con-monto" placeholder="Ej: 21300" autocomplete="off" oninput="updateImpacto()"></div>
+    <div class="field"><label>¿Cuántas cuotas quedan? (incluida esta)</label>
       <select id="con-cuotas" onchange="updateImpacto()">
-        <option value="1">1 cuota (contado)</option>
-        <option value="2">2 cuotas</option>
-        <option value="3">3 cuotas</option>
-        <option value="6">6 cuotas</option>
-        <option value="9">9 cuotas</option>
-        <option value="12">12 cuotas</option>
-        <option value="18">18 cuotas</option>
-        <option value="24">24 cuotas</option>
-        <option value="recurrente">🔄 Recurrente (todos los meses)</option>
-      </select>
-    </div>
-    <div class="field"><label>Estoy en la cuota N°</label>
-      <select id="con-cuota-ini" onchange="updateImpacto()">
-        <option value="1">1 (la cargué desde el inicio)</option>
-        <option value="2">2</option><option value="3">3</option><option value="4">4</option>
-        <option value="5">5</option><option value="6">6</option><option value="7">7</option>
-        <option value="8">8</option><option value="9">9</option><option value="10">10</option>
-        <option value="11">11</option><option value="12">12</option>
+        <option value="1">1 — solo este mes</option>
+        <option value="2">2 meses</option>
+        <option value="3">3 meses</option>
+        <option value="4">4 meses</option>
+        <option value="5">5 meses</option>
+        <option value="6">6 meses</option>
+        <option value="7">7 meses</option>
+        <option value="8">8 meses</option>
+        <option value="9">9 meses</option>
+        <option value="10">10 meses</option>
+        <option value="11">11 meses</option>
+        <option value="12">12 meses</option>
+        <option value="recurrente">🔄 Todos los meses (recurrente)</option>
       </select>
     </div>
     <div class="field"><label>Tarjeta</label>
@@ -575,11 +570,10 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
         <option value="mp">Mercado Pago Crédito</option>
       </select>
     </div>
-    <div class="field"><label>Fecha del consumo</label><input type="date" id="con-fecha" oninput="updateImpacto()"></div>
-    <div class="field"><label>Monto en dólares (opcional)</label><input type="text" inputmode="decimal" id="con-monto-usd" placeholder="Ej: 2,46 — solo si fue en USD" autocomplete="off"></div>
+    <div class="field"><label>Monto en dólares (opcional)</label><input type="text" inputmode="decimal" id="con-monto-usd" placeholder="Ej: 9,99 — solo si fue en USD" autocomplete="off"></div>
     <div class="impact-box" id="con-impact-box">
       <div class="impact-lbl">¿Cómo impacta?</div>
-      <div class="impact-val" id="con-impacto">Completá la fecha para ver</div>
+      <div class="impact-val" id="con-impacto">Seleccioná tarjeta y cuotas</div>
     </div>
     <div class="btn-row">
       <button class="btn-main btn-danger" id="con-del" style="display:none" onclick="deleteConsumo()">Eliminar</button>
@@ -839,7 +833,7 @@ function consumosDelMes(consumos, mes, año){
     } else {
       const cuotas=Number(c.cuotas)||1;
       const cuotaIni=c.cuotaInicial||1;
-      const cuotaMonto=Math.round(Number(c.monto)/cuotas);
+      const cuotaMonto=c._montoCuota||Math.round(Number(c.monto)/cuotas);
       const impactos=impactosCuotas(c.tarjeta,c.fecha,cuotas,cuotaIni);
       impactos.forEach((imp,i)=>{
         if(imp.mes===mes&&imp.año===año){
@@ -1253,9 +1247,7 @@ function openConsumoModal(tarjId){
   document.getElementById('con-nombre').value='';
   document.getElementById('con-monto').value='';
   document.getElementById('con-cuotas').value='1';
-  document.getElementById('con-cuota-ini').value='1';
   document.getElementById('con-tarjeta').value=tarjId||'amex';
-  document.getElementById('con-fecha').value=new Date().toISOString().split('T')[0];
   document.getElementById('con-monto-usd').value='';
   document.getElementById('con-del').style.display='none';
   updateImpacto(); openModal('consumo');
@@ -1266,33 +1258,57 @@ function editConsumoModal(id){
   editingCon=id;
   document.getElementById('con-title').textContent='Editar consumo';
   document.getElementById('con-nombre').value=c.nombre;
-  document.getElementById('con-monto').value=c.monto;
+  // Mostrar monto de cuota: si tiene _montoCuota usarlo, sino calcular
+  const cuotas=c.cuotas==='recurrente'?1:parseInt(c.cuotas)||1;
+  const montoCuota=c._montoCuota||(cuotas>1?Math.round(c.monto/cuotas):c.monto);
+  document.getElementById('con-monto').value=montoCuota||'';
   document.getElementById('con-cuotas').value=c.cuotas||1;
-  document.getElementById('con-cuota-ini').value=c.cuotaInicial||1;
-  const cuotaIniWrap=document.getElementById('con-cuota-ini')?.closest('.field');
-  if(cuotaIniWrap) cuotaIniWrap.style.display=(c.cuotas==='recurrente'||c.cuotas===1||c.cuotas==='1')?'none':'block';
   document.getElementById('con-tarjeta').value=c.tarjeta;
-  document.getElementById('con-fecha').value=c.fecha;
   document.getElementById('con-monto-usd').value=c.montoUSD||'';
   document.getElementById('con-del').style.display='block';
   updateImpacto(); openModal('consumo');
 }
+function updateImpacto(){
+  const cuotas=document.getElementById('con-cuotas').value;
+  const monto=parseMonto(document.getElementById('con-monto').value)||0;
+  const el=document.getElementById('con-impacto');
+  if(!el) return;
+  if(cuotas==='recurrente'){
+    el.innerHTML=`🔄 Aparece todos los meses desde <b>${MESES[curM]} ${curY}</b>`;
+    return;
+  }
+  const n=parseInt(cuotas)||1;
+  const meses=[];
+  for(let i=0;i<n;i++){
+    let m=curM+i, y=curY;
+    while(m>11){m-=12;y++;}
+    meses.push(`${MESES_C[m]} ${y}`);
+  }
+  if(n===1){
+    el.innerHTML=`Impacta en <b>${meses[0]}</b>`;
+  } else {
+    el.innerHTML=`${n} cuotas de <b>${fmt(monto)}</b><br><span style="font-size:11px">${meses.join(' → ')}</span>`;
+  }
+}
 function saveConsumo(){
   const nombre=document.getElementById('con-nombre').value.trim();
-  const monto=parseMonto(document.getElementById('con-monto').value);
+  const montoCuota=parseMonto(document.getElementById('con-monto').value);
   const montoUSD=parseMonto(document.getElementById('con-monto-usd').value)||0;
   const cuotasVal=document.getElementById('con-cuotas').value;
   const cuotas=cuotasVal==='recurrente'?'recurrente':parseInt(cuotasVal)||1;
-  const cuotaInicial=cuotas==='recurrente'?1:parseInt(document.getElementById('con-cuota-ini').value)||1;
   const tarjeta=document.getElementById('con-tarjeta').value;
-  const fecha=document.getElementById('con-fecha').value;
-  if(!nombre||(!monto&&!montoUSD)||!fecha){ toast('Completá nombre, monto y fecha'); return; }
+  if(!nombre||(!montoCuota&&!montoUSD)){ toast('Completá nombre y monto'); return; }
+  // Fecha sintética: día 15 del mes actual → siempre dentro del período correcto
+  const fecha=`${curY}-${String(curM+1).padStart(2,'0')}-15`;
+  // monto total = cuota × cuotas (para compatibilidad interna)
+  const monto=cuotas==='recurrente'?montoCuota:montoCuota*(parseInt(cuotas)||1);
   const list=loadG('consumos')||[];
-  const nuevo={nombre,monto,cuotas,tarjeta,fecha,cuotaInicial,montoUSD};
+  const nuevo={nombre,monto,cuotas,tarjeta,fecha,cuotaInicial:1,montoUSD,_montoCuota:montoCuota};
   if(editingCon){ const i=list.findIndex(x=>x.id===editingCon); if(i>=0) list[i]={...list[i],...nuevo}; }
   else list.push({id:'c'+Date.now(),...nuevo});
   saveG('consumos',list); closeModal('consumo');
-  toast(cuotas>1?`Guardado en ${cuotas} cuotas ✓`:'Guardado ✓'); render();
+  toast(cuotas==='recurrente'?'Recurrente guardado ✓':cuotas>1?`${cuotas} cuotas guardadas ✓`:'Guardado ✓');
+  render();
 }
 function deleteConsumo(){
   saveG('consumos',(loadG('consumos')||[]).filter(x=>x.id!==editingCon));
