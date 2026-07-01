@@ -662,6 +662,7 @@ const VAR_CATS = [
 // ─── ESTADO ──────────────────────────────────────────────────────────────────
 let curM = 5, curY = 2026;
 let editingGF = null, editingCon = null, editingIng = null, editingCons = null;
+let conModalMes = 5, conModalYear = 2026; // mes activo cuando se abrió el modal de consumo
 let consFilter = 'all';
 let expandedGF = {};
 // collapsible sections: fijos = bool, vars = {catId: bool}
@@ -1258,6 +1259,7 @@ function renderTarjetas(consumos, consumosMes){
 
 function openConsumoModal(tarjId){
   editingCon=null;
+  conModalMes=curM; conModalYear=curY; // guardar mes activo
   document.getElementById('con-title').textContent='Nuevo consumo';
   document.getElementById('con-nombre').value='';
   document.getElementById('con-monto').value='';
@@ -1271,9 +1273,9 @@ function editConsumoModal(id){
   const list=loadG('consumos')||[];
   const c=list.find(x=>x.id===id); if(!c) return;
   editingCon=id;
+  conModalMes=curM; conModalYear=curY; // guardar mes activo
   document.getElementById('con-title').textContent='Editar consumo';
   document.getElementById('con-nombre').value=c.nombre;
-  // Mostrar monto de cuota: si tiene _montoCuota usarlo, sino calcular
   const cuotas=c.cuotas==='recurrente'?1:parseInt(c.cuotas)||1;
   const montoCuota=c._montoCuota||(cuotas>1?Math.round(c.monto/cuotas):c.monto);
   document.getElementById('con-monto').value=montoCuota||'';
@@ -1289,13 +1291,13 @@ function updateImpacto(){
   const el=document.getElementById('con-impacto');
   if(!el) return;
   if(cuotas==='recurrente'){
-    el.innerHTML=`🔄 Aparece todos los meses desde <b>${MESES[curM]} ${curY}</b>`;
+    el.innerHTML=`🔄 Aparece todos los meses desde <b>${MESES[conModalMes]} ${conModalYear}</b>`;
     return;
   }
   const n=parseInt(cuotas)||1;
   const meses=[];
   for(let i=0;i<n;i++){
-    let m=curM+i, y=curY;
+    let m=conModalMes+i, y=conModalYear;
     while(m>11){m-=12;y++;}
     meses.push(`${MESES_C[m]} ${y}`);
   }
@@ -1313,9 +1315,8 @@ function saveConsumo(){
   const cuotas=cuotasVal==='recurrente'?'recurrente':parseInt(cuotasVal)||1;
   const tarjeta=document.getElementById('con-tarjeta').value;
   if(!nombre||(!montoCuota&&!montoUSD)){ toast('Completá nombre y monto'); return; }
-  // Fecha sintética: día 15 del mes actual → siempre dentro del período correcto
-  const fecha=`${curY}-${String(curM+1).padStart(2,'0')}-15`;
-  // monto total = cuota × cuotas (para compatibilidad interna)
+  // Usar el mes en que se ABRIÓ el modal, no el mes actual
+  const fecha=`${conModalYear}-${String(conModalMes+1).padStart(2,'0')}-15`;
   const monto=cuotas==='recurrente'?montoCuota:montoCuota*(parseInt(cuotas)||1);
   const list=loadG('consumos')||[];
   const nuevo={nombre,monto,cuotas,tarjeta,fecha,cuotaInicial:1,montoUSD,_montoCuota:montoCuota};
