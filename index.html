@@ -1214,18 +1214,14 @@ function renderTarjetas(consumos, consumosMes){
 
     const itemsHTML=delMes.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(c=>{
       const esRec=c.cuotas==='recurrente';
-      const cuotas=esRec?1:Number(c.cuotas)||1;
-      const cuotaIni=c.cuotaInicial||1;
-      const cuotaMonto=Math.round(Number(c.monto)/cuotas);
-      const impactos=esRec?[impactoMes(c.tarjeta,c.fecha)]:impactosCuotas(c.tarjeta,c.fecha,cuotas,cuotaIni);
-      const cuotaLabel=esRec?' · 🔄 Recurrente':cuotas>1?` · cuota ${cuotaIni}/${cuotas}`:'';
-      const mesesLabel=esRec?`desde ${MESES_C[impactos[0]?.mes]}`:cuotas>1
-        ? impactos.map(i=>MESES_C[i.mes]).join('→')
-        : `→ ${MESES_C[impactos[0]?.mes]} ${impactos[0]?.año}`;
-      const montoDisplay=c.montoUSD>0?`US$ ${c.montoUSD}`:fmt(esRec?Number(c.monto):cuotaMonto);
+      const cuotaTotal=c.cuotaTotal||Number(c.cuotas)||1;
+      const cuotaNum=c.cuotaNum||1;
+      const cuotaMonto=c.montoCuota||c._montoCuota||Number(c.monto);
+      const cuotaLabel=esRec?' · 🔄 Recurrente':cuotaTotal>1?` · cuota ${cuotaNum}/${cuotaTotal}`:'';
+      const montoDisplay=c.montoUSD>0?`US$ ${c.montoUSD}`:fmt(cuotaMonto);
       return `<div class="cr-row" onclick="editConsumoModal('${c.id}')">
         <div><div class="cr-name">${c.nombre}${cuotaLabel}</div><div class="cr-date">${fmtFecha(c.fecha)}</div></div>
-        <div class="cr-right"><div class="cr-amt">${montoDisplay}</div><div class="cr-imp">${mesesLabel}</div></div>
+        <div class="cr-right"><div class="cr-amt">${montoDisplay}</div></div>
       </div>`;
     }).join('') || '<div style="font-size:12px;color:var(--muted);padding:8px 0">Sin consumos este mes</div>';
 
