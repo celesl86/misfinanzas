@@ -1212,7 +1212,7 @@ function renderTarjetas(consumos, consumosMes){
     const dias=Math.ceil((cie-hoy)/86400000);
     const isOpen=tarjetasOpen[id]!==false; // default open
 
-    const itemsHTML=mis.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(c=>{
+    const itemsHTML=delMes.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(c=>{
       const esRec=c.cuotas==='recurrente';
       const cuotas=esRec?1:Number(c.cuotas)||1;
       const cuotaIni=c.cuotaInicial||1;
@@ -1227,7 +1227,7 @@ function renderTarjetas(consumos, consumosMes){
         <div><div class="cr-name">${c.nombre}${cuotaLabel}</div><div class="cr-date">${fmtFecha(c.fecha)}</div></div>
         <div class="cr-right"><div class="cr-amt">${montoDisplay}</div><div class="cr-imp">${mesesLabel}</div></div>
       </div>`;
-    }).join('') || '<div style="font-size:12px;color:var(--muted);padding:8px 0">Sin consumos</div>';
+    }).join('') || '<div style="font-size:12px;color:var(--muted);padding:8px 0">Sin consumos este mes</div>';
 
     return `<div class="coll-section" style="margin-bottom:10px;">
       <div class="coll-hdr" onclick="toggleTarjeta('${id}')">
