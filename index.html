@@ -660,7 +660,7 @@ const VAR_CATS = [
 ];
 
 // ─── ESTADO ──────────────────────────────────────────────────────────────────
-let curM = 5, curY = 2026;
+let curM = new Date().getMonth(), curY = new Date().getFullYear();
 let editingGF = null, editingCon = null, editingIng = null, editingCons = null;
 let conModalMes = 5, conModalYear = 2026; // mes activo cuando se abrió el modal de consumo
 let consFilter = 'all';
