@@ -300,8 +300,6 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
   <div id="overdue-banner"></div>
   <!-- FIJOS: collapsible wrapper -->
   <div id="gastos-fijos-list"></div>
-  <!-- PLANIFICADOS -->
-  <div id="gastos-planificados-list"></div>
   <!-- ANDREA CALCULATOR -->
   <div class="coll-section" style="margin-bottom:10px;">
     <div class="coll-hdr" onclick="toggleAndrea()">
@@ -742,7 +740,7 @@ function loadVars(){
     }));
     // items extra agregados por el usuario
     const extra = s.extra || [];
-    return { ...cat, items, extra };
+    return { ...cat, items, extra, fecha: s.fecha||'' };
   });
 }
 function saveVars(vars){
@@ -751,6 +749,7 @@ function saveVars(vars){
     obj[cat.id] = {
       items: cat.items.map(i=>({ monto:i.monto, checked:i.checked, fpago:i.fpago||'contado' })),
       extra: cat.extra,
+      fecha: cat.fecha||'',
     };
   });
   save('vars', obj);
@@ -914,7 +913,7 @@ function render(){
     return f.getMonth()===curM && f.getFullYear()===curY;
   });
   const totalPlan = planItems.filter(p=>!p.pagado&&p.fpago!=='tarjeta').reduce((a,p)=>a+Number(p.monto||0),0);
-  const totalGas   = totalFijos+totalVars+totalAndrea+totalTarj+totalPlan;
+  const totalGas   = totalFijos+totalVars+totalAndrea+totalTarj;
   const totalIng   = ingresos.reduce((a,i)=>a+Number(i.monto||0),0) + totalCons;
   const saldo      = totalIng-totalGas;
 
@@ -942,8 +941,6 @@ function render(){
 
   // GASTOS FIJOS
   renderFijos(fijos);
-  // PLANIFICADOS
-  renderPlanificados();
   // GASTOS VARIABLES
   renderVars(vars);
   // TARJETAS
@@ -1137,6 +1134,12 @@ function renderVars(vars){
       </div>
       <div class="coll-body ${isOpen?'open':''}">
         <div class="coll-inner">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+            <span style="font-size:11px;color:var(--muted);flex-shrink:0;">📅 Fecha estimada:</span>
+            <input type="date" value="${cat.fecha||''}"
+              style="flex:1;background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--text);outline:none;"
+              onchange="updateVarFecha(${ci},this.value)" onclick="event.stopPropagation()">
+          </div>
           <div class="vcc-list">${itemsHTML}${extraHTML}</div>
           <div class="vcc-add-row">
             <input class="vcc-add-input" type="text" placeholder="Agregar ítem..." id="vadd-${ci}">
@@ -1146,6 +1149,15 @@ function renderVars(vars){
       </div>
     </div>`;
   }).join('');
+}
+function updateVarFecha(ci, fecha){
+  const saved=load('vars')||{};
+  const cat=VAR_CATS[ci];
+  if(!cat) return;
+  const s=saved[cat.id]||{};
+  s.fecha=fecha;
+  saved[cat.id]=s;
+  save('vars',saved);
 }
 function toggleCollVar(catId){ collVars[catId]=!collVars[catId]; render(); }
 
@@ -1989,18 +2001,22 @@ function renderParcial(fijos, consumosMes){
       emoji:'🧹', monto:andreaTotalCobro, tipo:'andrea', estado:'pending'
     }] : [];
 
-    // Planificados de este cobro
-    const planDeCobro = loadPlan().filter(p=>{
-      if(p.pagado||p.fpago==='tarjeta') return false;
-      const f=new Date(p.fecha+'T00:00:00');
+    // Variables con fecha asignada a este cobro
+    const vars = loadVars();
+    const varsDeCobro = vars.filter(cat=>{
+      if(!cat.fecha) return false;
+      const f=new Date(cat.fecha+'T00:00:00');
       if(f.getMonth()!==curM||f.getFullYear()!==curY) return false;
       const dia=f.getDate();
       if(cobro.id==='dia5') return dia<20;
       if(cobro.id==='dia20') return dia>=20;
       return false;
-    }).map(p=>({id:'plan_'+p.id, _planId:p.id, nombre:p.nombre, emoji:'📅', monto:p.monto, tipo:'plan', estado:'pending'}));
+    }).map(cat=>{
+      const total=[...cat.items,...cat.extra].filter(i=>Number(i.monto||0)>0&&i.fpago!=='tarjeta').reduce((a,i)=>a+Number(i.monto||0),0);
+      return total>0?{id:'var_'+cat.id, nombre:cat.nombre, emoji:cat.emoji, monto:total, tipo:'var', estado:'pending'}:null;
+    }).filter(Boolean);
 
-    const todos = [...gastosFijos.map(g=>({...g,tipo:'fijo'})), ...gastosTargeta, ...andreaItem, ...planDeCobro];
+    const todos = [...gastosFijos.map(g=>({...g,tipo:'fijo'})), ...gastosTargeta, ...andreaItem, ...varsDeCobro];
     const totalPagar = todos.reduce((a,g)=>a+Number(g.monto||0),0);
     const pagado = todos.filter(g=>g.estado==='paid').reduce((a,g)=>a+Number(g.monto||0),0);
     const pendiente = totalPagar - pagado;
