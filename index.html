@@ -300,6 +300,8 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
   <div id="overdue-banner"></div>
   <!-- FIJOS: collapsible wrapper -->
   <div id="gastos-fijos-list"></div>
+  <!-- PLANIFICADOS -->
+  <div id="gastos-planificados-list"></div>
   <!-- ANDREA CALCULATOR -->
   <div class="coll-section" style="margin-bottom:10px;">
     <div class="coll-hdr" onclick="toggleAndrea()">
@@ -605,6 +607,27 @@ body{font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;back
   </div>
 </div>
 
+<!-- MODAL GASTO PLANIFICADO -->
+<div class="overlay" id="modal-plan">
+  <div class="modal">
+    <button class="m-close" onclick="closeModal('plan')">✕</button>
+    <h3 id="plan-title">Gasto planificado</h3>
+    <div class="field"><label>Descripción</label><input type="text" id="plan-nombre" placeholder="Ej: Dentista" autocomplete="off"></div>
+    <div class="field"><label>Monto estimado ($)</label><input type="text" inputmode="decimal" id="plan-monto" placeholder="0" autocomplete="off"></div>
+    <div class="field"><label>Fecha de pago</label><input type="date" id="plan-fecha"></div>
+    <div class="field"><label>Forma de pago</label>
+      <select id="plan-fpago">
+        <option value="contado">💵 Efectivo / Transferencia</option>
+        <option value="tarjeta">💳 Tarjeta</option>
+      </select>
+    </div>
+    <div class="btn-row">
+      <button class="btn-main btn-danger" id="plan-del" style="display:none" onclick="deletePlan()">Eliminar</button>
+      <button class="btn-main" onclick="savePlan()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -886,7 +909,12 @@ function render(){
   const totalTarj  = consumosMes.reduce((a,c)=>a+c.montoCuota,0);
   const atencionesM = atenciones.filter(a=>{ const f=new Date(a.fecha+'T12:00:00'); return f.getMonth()===curM&&f.getFullYear()===curY; });
   const totalCons  = atencionesM.reduce((a,c)=>a+Number(c.monto||0),0);
-  const totalGas   = totalFijos+totalVars+totalAndrea+totalTarj;
+  const planItems = loadPlan().filter(p=>{
+    const f=new Date(p.fecha+'T00:00:00');
+    return f.getMonth()===curM && f.getFullYear()===curY;
+  });
+  const totalPlan = planItems.filter(p=>!p.pagado&&p.fpago!=='tarjeta').reduce((a,p)=>a+Number(p.monto||0),0);
+  const totalGas   = totalFijos+totalVars+totalAndrea+totalTarj+totalPlan;
   const totalIng   = ingresos.reduce((a,i)=>a+Number(i.monto||0),0) + totalCons;
   const saldo      = totalIng-totalGas;
 
@@ -914,6 +942,8 @@ function render(){
 
   // GASTOS FIJOS
   renderFijos(fijos);
+  // PLANIFICADOS
+  renderPlanificados();
   // GASTOS VARIABLES
   renderVars(vars);
   // TARJETAS
@@ -1325,6 +1355,124 @@ function saveConsumo(){
 function deleteConsumo(){
   saveG('consumos',(loadG('consumos')||[]).filter(x=>x.id!==editingCon));
   closeModal('consumo'); toast('Eliminado'); render();
+}
+
+// ── GASTOS PLANIFICADOS ──────────────────────────────────────────────────────
+let editingPlan = null;
+let collPlan = true;
+
+function loadPlan(){ return load('planificados')||[]; }
+function savePlanData(d){ save('planificados',d); }
+
+function renderPlanificados(){
+  const el=document.getElementById('gastos-planificados-list');
+  if(!el) return;
+  const items=loadPlan();
+  if(!items.length){
+    el.innerHTML=`<div class="coll-section" style="margin-bottom:10px;">
+      <div class="coll-hdr" onclick="toggleCollPlan()">
+        <div class="coll-left"><span class="coll-emoji">📅</span><span class="coll-label">Gastos planificados</span></div>
+        <div class="coll-right"><span class="sec-add" onclick="event.stopPropagation();openPlanModal()" style="font-size:13px;color:var(--a1);font-weight:700;">+ Agregar</span><span class="coll-arrow ${collPlan?'open':''}">▼</span></div>
+      </div>
+      <div class="coll-body ${collPlan?'open':''}">
+        <div class="coll-inner"><div class="empty">Sin gastos planificados este mes</div></div>
+      </div>
+    </div>`;
+    return;
+  }
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const totalPend=items.filter(i=>!i.pagado&&i.fpago!=='tarjeta').reduce((a,i)=>a+Number(i.monto||0),0);
+  const filas=items.sort((a,b)=>a.fecha.localeCompare(b.fecha)).map(i=>{
+    const fecha=new Date(i.fecha+'T00:00:00');
+    const vencido=fecha<hoy&&!i.pagado;
+    return `<div class="gf-item ${i.pagado?'paid':vencido?'overdue':''}" onclick="openPlanModal('${i.id}')">
+      <div class="gf-top">
+        <div class="gf-ico" style="background:rgba(162,155,254,.15)">📅</div>
+        <div class="gf-body">
+          <div class="gf-name">${i.nombre} ${i.pagado?'<span class="gf-paid-badge">✓ Pagado</span>':vencido?'<span class="gf-overdue-badge">⚠ Vencido</span>':''}</div>
+          <div class="gf-meta">${fmtFecha(i.fecha)} · ${i.fpago==='tarjeta'?'💳 Tarjeta':'💵 Efectivo/Transf.'}</div>
+        </div>
+        <div class="gf-right"><div class="gf-amt" style="color:${i.pagado?'var(--muted)':vencido?'var(--a3)':'var(--text)'}">${fmt(i.monto)}</div></div>
+      </div>
+      ${expandedGF['plan_'+i.id]?`<div class="gf-actions">
+        <button class="gf-btn gf-btn-edit" onclick="event.stopPropagation();openPlanModal('${i.id}')">✏️ Editar</button>
+        <button class="gf-btn ${i.pagado?'gf-btn-unpay':'gf-btn-pay'}" onclick="event.stopPropagation();togglePlanPago('${i.id}')">
+          ${i.pagado?'↩ Desmarcar':'✓ Marcar pagado'}
+        </button>
+      </div>`:''}
+    </div>`;
+  }).join('');
+  el.innerHTML=`<div class="coll-section" style="margin-bottom:10px;">
+    <div class="coll-hdr" onclick="toggleCollPlan()">
+      <div class="coll-left"><span class="coll-emoji">📅</span><span class="coll-label">Gastos planificados</span></div>
+      <div class="coll-right">
+        ${totalPend>0?`<span class="coll-total" style="color:var(--a3)">${fmt(totalPend)}</span>`:''}
+        <span class="sec-add" onclick="event.stopPropagation();openPlanModal()" style="font-size:13px;color:var(--a1);font-weight:700;">+ Agregar</span>
+        <span class="coll-arrow ${collPlan?'open':''}">▼</span>
+      </div>
+    </div>
+    <div class="coll-body ${collPlan?'open':''}">
+      <div class="coll-inner">${filas}</div>
+    </div>
+  </div>`;
+}
+
+function toggleCollPlan(){ collPlan=!collPlan; renderPlanificados(); }
+
+function toggleExpand(id){
+  expandedGF[id]=!expandedGF[id]; render();
+}
+function togglePlanExpand(id){
+  expandedGF['plan_'+id]=!expandedGF['plan_'+id]; renderPlanificados();
+}
+
+function togglePlanPago(id){
+  const items=loadPlan();
+  const item=items.find(x=>x.id===id);
+  if(item) item.pagado=!item.pagado;
+  savePlanData(items);
+  toast(item?.pagado?'✓ Pagado':'Desmarcado');
+  render();
+}
+
+function openPlanModal(id){
+  editingPlan=id||null;
+  if(id){
+    const item=loadPlan().find(x=>x.id===id);
+    if(!item) return;
+    document.getElementById('plan-title').textContent='Editar gasto';
+    document.getElementById('plan-nombre').value=item.nombre;
+    document.getElementById('plan-monto').value=item.monto;
+    document.getElementById('plan-fecha').value=item.fecha;
+    document.getElementById('plan-fpago').value=item.fpago||'contado';
+    document.getElementById('plan-del').style.display='block';
+  } else {
+    document.getElementById('plan-title').textContent='Gasto planificado';
+    document.getElementById('plan-nombre').value='';
+    document.getElementById('plan-monto').value='';
+    document.getElementById('plan-fecha').value=new Date().toISOString().split('T')[0];
+    document.getElementById('plan-fpago').value='contado';
+    document.getElementById('plan-del').style.display='none';
+  }
+  openModal('plan');
+}
+
+function savePlan(){
+  const nombre=document.getElementById('plan-nombre').value.trim();
+  const monto=parseMonto(document.getElementById('plan-monto').value);
+  const fecha=document.getElementById('plan-fecha').value;
+  if(!nombre||!monto||!fecha){ toast('Completá todos los campos'); return; }
+  const items=loadPlan();
+  const nuevo={id:editingPlan||('p'+Date.now()),nombre,monto,fecha,fpago:document.getElementById('plan-fpago').value,pagado:false};
+  if(editingPlan){ const i=items.findIndex(x=>x.id===editingPlan); if(i>=0) items[i]={...items[i],...nuevo,pagado:items[i].pagado}; }
+  else items.push(nuevo);
+  savePlanData(items);
+  closeModal('plan'); toast('Guardado ✓'); render();
+}
+
+function deletePlan(){
+  savePlanData(loadPlan().filter(x=>x.id!==editingPlan));
+  closeModal('plan'); toast('Eliminado'); render();
 }
 
 // ── ANDREA ───────────────────────────────────────────────────────────────────
@@ -1841,7 +1989,18 @@ function renderParcial(fijos, consumosMes){
       emoji:'🧹', monto:andreaTotalCobro, tipo:'andrea', estado:'pending'
     }] : [];
 
-    const todos = [...gastosFijos.map(g=>({...g,tipo:'fijo'})), ...gastosTargeta, ...andreaItem];
+    // Planificados de este cobro
+    const planDeCobro = loadPlan().filter(p=>{
+      if(p.pagado||p.fpago==='tarjeta') return false;
+      const f=new Date(p.fecha+'T00:00:00');
+      if(f.getMonth()!==curM||f.getFullYear()!==curY) return false;
+      const dia=f.getDate();
+      if(cobro.id==='dia5') return dia<20;
+      if(cobro.id==='dia20') return dia>=20;
+      return false;
+    }).map(p=>({id:'plan_'+p.id, _planId:p.id, nombre:p.nombre, emoji:'📅', monto:p.monto, tipo:'plan', estado:'pending'}));
+
+    const todos = [...gastosFijos.map(g=>({...g,tipo:'fijo'})), ...gastosTargeta, ...andreaItem, ...planDeCobro];
     const totalPagar = todos.reduce((a,g)=>a+Number(g.monto||0),0);
     const pagado = todos.filter(g=>g.estado==='paid').reduce((a,g)=>a+Number(g.monto||0),0);
     const pendiente = totalPagar - pagado;
@@ -1854,8 +2013,10 @@ function renderParcial(fijos, consumosMes){
       if(g.tipo==='fijo') onclick=`onclick="parcialTogglePago('${g.id}')"`;
       else if(g.tipo==='tarjeta') onclick=`onclick="parcialToggleTarjeta('${g.id.replace('tarj_','')}','${cobro.id}')"`;
       else if(g.tipo==='andrea') onclick=`onclick="goTo('s-gastos')"`;
+      else if(g.tipo==='plan') onclick=`onclick="togglePlanPago('${g._planId}')"`;
       const prefix=g.tipo==='tarjeta'?'💳 ':g.emoji+' ';
       const hint=g.tipo==='andrea'?'<div style="font-size:10px;color:var(--muted);margin-top:1px">Tocá para marcar días →</div>':'';
+      const amtColor=paid?'var(--muted)':g.tipo==='tarjeta'?'var(--a4)':g.tipo==='andrea'?'var(--a2)':g.tipo==='plan'?'var(--a1)':'var(--a3)';
       const check=g.tipo==='andrea'
         ? `<div style="width:22px;height:22px;border-radius:6px;background:rgba(0,201,167,.15);display:flex;align-items:center;justify-content:center;font-size:13px;">🧹</div>`
         : `<div style="width:22px;height:22px;border-radius:6px;border:2px solid ${paid?'var(--green)':'var(--border)'};background:${paid?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;color:${paid?'#000':''};">${paid?'✓':''}</div>`;
@@ -1864,7 +2025,7 @@ function renderParcial(fijos, consumosMes){
           ${check}
           <div><div class="pb-row-name" style="${paid?'text-decoration:line-through;color:var(--muted)':''}">${prefix}${g.nombre}</div>${hint}</div>
         </div>
-        <span class="pb-row-amt" style="color:${paid?'var(--muted)':g.tipo==='tarjeta'?'var(--a4)':g.tipo==='andrea'?'var(--a2)':'var(--a3)'}">${fmt(g.monto)}</span>
+        <span class="pb-row-amt" style="color:${amtColor}">${fmt(g.monto)}</span>
       </div>`;
     }).join('');
 
