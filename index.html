@@ -1109,7 +1109,10 @@ function renderVars(vars){
     const extraHTML=cat.extra.map((item,ei)=>`
       <div class="vi-row">
         <div class="vi-check-btn ${item.checked?'checked':''}" ontouchstart="toggleVarItem(${ci},${ei},'extra')" onclick="toggleVarItem(${ci},${ei},'extra')">${item.checked?'✓':''}</div>
-        <div class="vi-name ${item.checked?'checked':''}">${item.nombre}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="vi-name ${item.checked?'checked':''}">${item.nombre}</div>
+          ${item.fecha?`<div style="font-size:10px;color:var(--a1);">📅 ${fmtFecha(item.fecha)}</div>`:''}
+        </div>
         <select style="background:var(--surf);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:11px;color:${item.fpago==='tarjeta'?'var(--a4)':item.fpago==='debito'?'var(--a2)':'var(--muted)'};outline:none;flex-shrink:0;"
           onchange="updateVarFpago(${ci},${ei},'extra',this.value)" onclick="event.stopPropagation()">
           <option value="contado" ${item.fpago==='contado'||!item.fpago?'selected':''}>💵</option>
@@ -1134,16 +1137,11 @@ function renderVars(vars){
       </div>
       <div class="coll-body ${isOpen?'open':''}">
         <div class="coll-inner">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);">
-            <span style="font-size:11px;color:var(--muted);flex-shrink:0;">📅 Fecha estimada:</span>
-            <input type="date" value="${cat.fecha||''}"
-              style="flex:1;background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--text);outline:none;"
-              onchange="updateVarFecha(${ci},this.value)" onclick="event.stopPropagation()">
-          </div>
           <div class="vcc-list">${itemsHTML}${extraHTML}</div>
           <div class="vcc-add-row">
             <input class="vcc-add-input" type="text" placeholder="Agregar ítem..." id="vadd-${ci}">
-            <button class="vcc-add-btn" onclick="addVarItem(${ci})">+ Agregar</button>
+            <input type="date" id="vfecha-${ci}" style="background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:12px;color:var(--text);outline:none;flex-shrink:0;">
+            <button class="vcc-add-btn" onclick="addVarItem(${ci})">+</button>
           </div>
         </div>
       </div>
@@ -1232,11 +1230,20 @@ function deleteVarItem(ci,ei){
 }
 function addVarItem(ci){
   const input=document.getElementById(`vadd-${ci}`);
+  const fechaInput=document.getElementById(`vfecha-${ci}`);
   const nombre=input.value.trim();
   if(!nombre) return;
-  const vars=loadVars();
-  vars[ci].extra.push({nombre,monto:0,checked:false});
-  saveVars(vars); render();
+  const saved=load('vars')||{};
+  const cat=VAR_CATS[ci];
+  if(!cat) return;
+  const s=saved[cat.id]||{};
+  if(!s.extra) s.extra=[];
+  s.extra.push({nombre,monto:0,checked:false,fpago:'contado',fecha:fechaInput?.value||''});
+  saved[cat.id]=s;
+  save('vars',saved);
+  input.value='';
+  if(fechaInput) fechaInput.value='';
+  renderVars(loadVars());
 }
 
 // ── TARJETAS ─────────────────────────────────────────────────────────────────
@@ -2001,20 +2008,23 @@ function renderParcial(fijos, consumosMes){
       emoji:'🧹', monto:andreaTotalCobro, tipo:'andrea', estado:'pending'
     }] : [];
 
-    // Variables con fecha asignada a este cobro
+    // Ítems extra de variables con fecha asignada a este cobro
     const vars = loadVars();
-    const varsDeCobro = vars.filter(cat=>{
-      if(!cat.fecha) return false;
-      const f=new Date(cat.fecha+'T00:00:00');
-      if(f.getMonth()!==curM||f.getFullYear()!==curY) return false;
-      const dia=f.getDate();
-      if(cobro.id==='dia5') return dia<20;
-      if(cobro.id==='dia20') return dia>=20;
-      return false;
-    }).map(cat=>{
-      const total=[...cat.items,...cat.extra].filter(i=>Number(i.monto||0)>0&&i.fpago!=='tarjeta').reduce((a,i)=>a+Number(i.monto||0),0);
-      return total>0?{id:'var_'+cat.id, nombre:cat.nombre, emoji:cat.emoji, monto:total, tipo:'var', estado:'pending'}:null;
-    }).filter(Boolean);
+    const varsDeCobro = [];
+    vars.forEach(cat=>{
+      cat.extra.forEach(item=>{
+        if(!item.fecha||item.checked||item.fpago==='tarjeta'||!Number(item.monto||0)) return;
+        const f=new Date(item.fecha+'T00:00:00');
+        if(f.getMonth()!==curM||f.getFullYear()!==curY) return;
+        const dia=f.getDate();
+        const enEsteCobro=(cobro.id==='dia5'&&dia<20)||(cobro.id==='dia20'&&dia>=20);
+        if(enEsteCobro) varsDeCobro.push({
+          id:'var_'+cat.id+'_'+item.nombre,
+          nombre:`${cat.emoji} ${cat.nombre}: ${item.nombre}`,
+          emoji:'📅', monto:Number(item.monto), tipo:'var', estado:'pending'
+        });
+      });
+    });
 
     const todos = [...gastosFijos.map(g=>({...g,tipo:'fijo'})), ...gastosTargeta, ...andreaItem, ...varsDeCobro];
     const totalPagar = todos.reduce((a,g)=>a+Number(g.monto||0),0);
